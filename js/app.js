@@ -622,163 +622,6 @@ const App = (() => {
     return wrapper;
   }
 
-  /* ============================================
-     RENDERIZADO: ETAPA 2 — VALIDACION
-     ============================================ */
-
-  function renderValidation(results) {
-    var fuentes = results.fuentes || [];
-    var catalogos = results.catalogos || [];
-    var all = fuentes.concat(catalogos);
-
-    var fuentesEl = $('#fuentes-datos');
-    var catalogosEl = $('#fuentes-catalogos');
-    var alertaEl = $('#etapa-2 .alerta');
-
-    if (fuentesEl) {
-      fuentesEl.innerHTML = '';
-      buildSourceCards(fuentes, fuentesEl);
-    }
-
-    if (catalogosEl) {
-      catalogosEl.innerHTML = '';
-      buildSourceCards(catalogos, catalogosEl);
-    }
-
-    var errorCount = all.filter(function (s) { return s.status === 'error'; }).length;
-    var warnCount = all.filter(function (s) { return s.status === 'warn'; }).length;
-
-    // Alerta superior
-    if (alertaEl) {
-      if (errorCount > 0) {
-        alertaEl.removeAttribute('hidden');
-        var msg = alertaEl.querySelector('.alerta__mensaje');
-        if (msg) {
-          msg.textContent = errorCount + ' fuente(s) con errores — resolver antes de continuar';
-        }
-      } else {
-        alertaEl.setAttribute('hidden', '');
-      }
-    }
-
-    // Boton de avance
-    var btn = $('#etapa-2 .boton--primario');
-    if (btn) btn.disabled = (errorCount > 0);
-
-    addLog('info', 'Validacion: ' + all.length + ' fuente(s) analizada(s)');
-    if (errorCount > 0) addLog('error', errorCount + ' fuente(s) con errores');
-    if (warnCount > 0) addLog('warn', warnCount + ' fuente(s) con advertencias');
-  }
-
-  function buildSourceCards(sources, container) {
-    for (var i = 0; i < sources.length; i++) {
-      var src = sources[i];
-
-      var card = document.createElement('div');
-      card.className = 'tarjeta-fuente tarjeta-fuente--' + src.status;
-
-      // --- Header ---
-      var header = document.createElement('div');
-      header.className = 'tarjeta-fuente__header';
-
-      var dot = document.createElement('span');
-      dot.className = 'dot dot--' + src.status;
-
-      var nombre = document.createElement('span');
-      nombre.className = 'tarjeta-fuente__nombre';
-      nombre.textContent = src.name;
-
-      var meta = document.createElement('span');
-      meta.className = 'tarjeta-fuente__meta';
-      var parts = [];
-      if (src.records != null) parts.push(src.records + ' reg');
-      if (src.key) parts.push('llave: ' + src.key);
-      meta.textContent = parts.join(' · ');
-
-      var badge = document.createElement('span');
-      var alerts = src.alerts || [];
-      if (src.status === 'ok') {
-        badge.className = 'badge badge--ok';
-        badge.textContent = 'OK';
-      } else if (src.status === 'warn') {
-        badge.className = 'badge badge--warn';
-        badge.textContent = alerts.length + ' alerta' + (alerts.length !== 1 ? 's' : '');
-      } else {
-        badge.className = 'badge badge--error';
-        badge.textContent = 'Error';
-      }
-
-      header.appendChild(dot);
-      header.appendChild(nombre);
-      header.appendChild(meta);
-      header.appendChild(badge);
-      card.appendChild(header);
-
-      // --- Body (solo si hay alertas) ---
-      if (alerts.length > 0) {
-        var body = document.createElement('div');
-        body.className = 'tarjeta-fuente__body';
-
-        for (var j = 0; j < alerts.length; j++) {
-          var detail = document.createElement('div');
-          detail.className = 'tarjeta-fuente__detalle';
-
-          var adot = document.createElement('span');
-          adot.className = 'dot dot--' + alerts[j].level;
-
-          var amsg = document.createElement('span');
-          amsg.textContent = alerts[j].message;
-
-          detail.appendChild(adot);
-          detail.appendChild(amsg);
-          body.appendChild(detail);
-        }
-
-        // Acciones de la tarjeta
-        var acciones = document.createElement('div');
-        acciones.className = 'tarjeta-fuente__acciones';
-
-        if (src.status === 'warn') {
-          acciones.appendChild(makeGhostBtn('Ver registros', src.name, 'view'));
-        }
-        acciones.appendChild(makeGhostBtn('Reemplazar', src.name, 'replace'));
-        if (src.status === 'error') {
-          acciones.appendChild(makeGhostBtn('Mapear columnas', src.name, 'map'));
-        }
-
-        body.appendChild(acciones);
-        card.appendChild(body);
-
-        // Toggle body al hacer click en header
-        (function (h, b) {
-          h.addEventListener('click', function () {
-            if (b.hasAttribute('hidden')) {
-              b.removeAttribute('hidden');
-            } else {
-              b.setAttribute('hidden', '');
-            }
-          });
-        })(header, body);
-      }
-
-      container.appendChild(card);
-    }
-  }
-
-  function makeGhostBtn(text, sourceName, action) {
-    var btn = document.createElement('button');
-    btn.className = 'boton boton--ghost';
-    btn.textContent = text;
-    btn.dataset.source = sourceName;
-    btn.dataset.action = action;
-    btn.addEventListener('click', function (e) {
-      e.stopPropagation();
-      document.dispatchEvent(new CustomEvent('app:source-action', {
-        detail: { source: sourceName, action: action }
-      }));
-    });
-    return btn;
-  }
 
   /* ============================================
      RENDERIZADO: ETAPA 3 — CRUCE
@@ -1278,16 +1121,8 @@ const App = (() => {
     addLog('info', 'Analizando ' + filesMap.size + ' archivo(s)...');
 
     try {
-      var decimalSep = (1.1).toLocaleString().charAt(1);
-      var milesSep = decimalSep === ',' ? '.' : ',';
-
-      var configCard = document.getElementById('config-detectada');
-      if (configCard) {
-        document.getElementById('config-decimal').textContent = decimalSep === ',' ? 'Coma ( , )' : 'Punto ( . )';
-        document.getElementById('config-miles').textContent = milesSep === '.' ? 'Punto ( . )' : 'Coma ( , )';
-        document.getElementById('config-locale').textContent = navigator.language || 'No detectado';
-        configCard.hidden = false;
-      }
+      var selectDecimal = document.getElementById('select-decimal');
+      var decimalSep = selectDecimal ? selectDecimal.value : ',';
 
       var results = await PyBridge.analyzeAllFiles(filesMap, decimalSep);
       renderEDA(results);
@@ -1300,6 +1135,32 @@ const App = (() => {
       renderFileList(filesMap);
     } catch (err) {
       addLog('error', 'Error en analisis EDA: ' + (err.message || err));
+    }
+  }
+
+  /* ============================================
+     CONFIGURACION DE SEPARADORES
+     ============================================ */
+
+  function initSeparadorConfig() {
+    var selectDecimal = $('#select-decimal');
+    var selectMiles = $('#select-miles');
+    var localeEl = $('#config-locale');
+
+    var browserDecimal = (1.1).toLocaleString().charAt(1);
+    if (selectDecimal) selectDecimal.value = browserDecimal;
+    if (selectMiles) selectMiles.value = browserDecimal === ',' ? '.' : ',';
+    if (localeEl) localeEl.textContent = navigator.language || 'No detectado';
+
+    if (selectDecimal) {
+      selectDecimal.addEventListener('change', function () {
+        if (selectMiles) selectMiles.value = this.value === ',' ? '.' : ',';
+      });
+    }
+    if (selectMiles) {
+      selectMiles.addEventListener('change', function () {
+        if (selectDecimal) selectDecimal.value = this.value === '.' ? ',' : '.';
+      });
     }
   }
 
@@ -1320,6 +1181,7 @@ const App = (() => {
     initDirectoryPickers();
     initAdvanceButtons();
     initRefreshButton();
+    initSeparadorConfig();
 
     addLog('info', 'Esperando archivos...');
   }
@@ -1336,7 +1198,7 @@ const App = (() => {
     completeStage: completeStage,
     renderFileList: renderFileList,
     renderEDA: renderEDA,
-    renderValidation: renderValidation,
+
     renderCrossCheck: renderCrossCheck,
     renderConciliation: renderConciliation,
     renderReports: renderReports,

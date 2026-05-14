@@ -14,7 +14,9 @@
       "Bash(git branch *)",
       "Bash(git remote *)",
       "PowerShell(git pull *)",
-      "PowerShell(git add *)"
+      "PowerShell(git add *)",
+      "PowerShell(node --check js/app.js)",
+      "PowerShell(python -c \"import py_compile; py_compile.compile\\('python/conciliacion.py', doraise=True\\)\")"
     ]
   }
 }

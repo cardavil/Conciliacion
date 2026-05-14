@@ -167,7 +167,7 @@ def _es_numero_valido(val, decimal_sep=","):
     if not s:
         return False
     miles_sep = "." if decimal_sep == "," else ","
-    if s.endswith(decimal_sep) or s.endswith(miles_sep):
+    if s.endswith(miles_sep):
         return False
     if s.startswith(miles_sep):
         return False

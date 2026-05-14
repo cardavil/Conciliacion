@@ -79,6 +79,31 @@
           </table>
         </div>
 
+        <!-- Configuracion de formato numerico -->
+        <div id="config-separadores" class="config-detectada">
+          <h3 class="config-detectada__titulo">Formato numerico</h3>
+          <div class="config-detectada__items">
+            <div class="config-detectada__item">
+              <label class="config-detectada__label" for="select-decimal">Separador decimal</label>
+              <select class="config-detectada__select" id="select-decimal">
+                <option value=",">Coma ( , )</option>
+                <option value=".">Punto ( . )</option>
+              </select>
+            </div>
+            <div class="config-detectada__item">
+              <label class="config-detectada__label" for="select-miles">Separador de miles</label>
+              <select class="config-detectada__select" id="select-miles">
+                <option value=".">Punto ( . )</option>
+                <option value=",">Coma ( , )</option>
+              </select>
+            </div>
+            <div class="config-detectada__item">
+              <span class="config-detectada__label">Idioma detectado</span>
+              <span class="config-detectada__valor" id="config-locale"></span>
+            </div>
+          </div>
+        </div>
+
         <div class="etapa__acciones">
           <button class="boton boton--ghost" type="button"
                   aria-label="Actualizar lista de archivos">Actualizar</button>
@@ -104,25 +129,6 @@
           <span class="alerta__mensaje"></span>
         </div>
 
-        <!-- Configuracion detectada del sistema -->
-        <div id="config-detectada" class="config-detectada" hidden>
-          <h3 class="config-detectada__titulo">Configuracion del sistema</h3>
-          <div class="config-detectada__items">
-            <div class="config-detectada__item">
-              <span class="config-detectada__label">Separador decimal</span>
-              <span class="config-detectada__valor" id="config-decimal"></span>
-            </div>
-            <div class="config-detectada__item">
-              <span class="config-detectada__label">Separador de miles</span>
-              <span class="config-detectada__valor" id="config-miles"></span>
-            </div>
-            <div class="config-detectada__item">
-              <span class="config-detectada__label">Locale</span>
-              <span class="config-detectada__valor" id="config-locale"></span>
-            </div>
-          </div>
-        </div>
-
         <!-- Analisis de calidad por archivo (EDA) -->
         <div class="eda-resultados">
           <h3 class="eda-resultados__titulo">Analisis de calidad por archivo</h3>
@@ -130,17 +136,6 @@
                aria-label="Resultados del analisis de calidad"></div>
         </div>
 
-        <!-- Tarjetas de fuentes de datos -->
-        <div class="fuentes">
-          <h3 class="fuentes__titulo">Fuentes de datos</h3>
-          <div id="fuentes-datos" class="fuentes__lista"></div>
-        </div>
-
-        <!-- Tarjetas de catalogos de referencia -->
-        <div class="fuentes">
-          <h3 class="fuentes__titulo">Catalogos de referencia</h3>
-          <div id="fuentes-catalogos" class="fuentes__lista"></div>
-        </div>
 
         <div class="etapa__acciones">
           <button class="boton boton--primario" type="button" disabled
