@@ -459,7 +459,7 @@ const App = (() => {
 
         var thead = document.createElement('thead');
         var trHead = document.createElement('tr');
-        var headers = ['Columna', 'Tipo', 'Nulos', 'Vacios', 'Unicos', 'Muestra'];
+        var headers = ['Columna', 'Tipo', 'Vacios', 'Validos', 'Invalidos', 'Unicos', 'Muestra'];
         for (var h = 0; h < headers.length; h++) {
           var th = document.createElement('th');
           th.setAttribute('scope', 'col');
@@ -491,21 +491,29 @@ const App = (() => {
           tipoTag.className = 'tag-tipo tag-tipo--' + col.tipo_detectado;
           tipoTag.textContent = col.tipo_detectado;
           tdTipo.appendChild(tipoTag);
-          if (col.formato_inconsistente) {
-            var warnDot = document.createElement('span');
-            warnDot.className = 'dot dot--warn';
-            warnDot.title = 'Formato inconsistente';
-            warnDot.style.marginLeft = '0.25rem';
-            tdTipo.appendChild(warnDot);
-          }
 
-          // Nulos con mini-bar
-          var tdNulos = document.createElement('td');
-          tdNulos.appendChild(buildMiniBar(col.pct_nulo || 0));
-
-          // Vacios
+          // Vacios con mini-bar
           var tdVacios = document.createElement('td');
-          tdVacios.textContent = col.vacios;
+          tdVacios.appendChild(buildMiniBar(col.pct_vacios || 0));
+
+          // Validos
+          var tdValidos = document.createElement('td');
+          tdValidos.textContent = col.validos != null ? col.validos : '';
+
+          // Invalidos
+          var tdInvalidos = document.createElement('td');
+          var nInv = col.invalidos || 0;
+          tdInvalidos.textContent = nInv;
+          if (nInv > 0) {
+            var invDot = document.createElement('span');
+            invDot.className = 'dot dot--warn';
+            invDot.style.marginLeft = '0.25rem';
+            tdInvalidos.appendChild(invDot);
+            var invMuestra = col.muestra_invalidos || [];
+            if (invMuestra.length > 0) {
+              tdInvalidos.title = 'Muestra: ' + invMuestra.join(', ');
+            }
+          }
 
           // Unicos
           var tdUnicos = document.createElement('td');
@@ -520,8 +528,9 @@ const App = (() => {
 
           tr.appendChild(tdNombre);
           tr.appendChild(tdTipo);
-          tr.appendChild(tdNulos);
           tr.appendChild(tdVacios);
+          tr.appendChild(tdValidos);
+          tr.appendChild(tdInvalidos);
           tr.appendChild(tdUnicos);
           tr.appendChild(tdMuestra);
           tbody.appendChild(tr);
@@ -568,6 +577,19 @@ const App = (() => {
     if (totalWarnings > 0) {
       setStageState(1, 'warn');
       setStageWarnCount(1, totalWarnings);
+    }
+
+    // Habilitar boton Siguiente: solo errores bloquean
+    var btnStage1 = $('#etapa-1 .boton--primario');
+    if (btnStage1) {
+      var hasErrors = false;
+      for (var fn = 0; fn < fileNames.length; fn++) {
+        if (edaResults[fileNames[fn]] && edaResults[fileNames[fn]].estado === 'error') {
+          hasErrors = true;
+          break;
+        }
+      }
+      btnStage1.disabled = hasErrors;
     }
 
     addLog('ok', fileNames.length + ' archivo(s) analizado(s)');
@@ -885,10 +907,11 @@ const App = (() => {
       }
     }
 
-    // Boton de avance
+    // Boton de avance: solo bloquear por errores reales, no por sin-match
     var btn = $('#etapa-3 .boton--primario');
     if (btn) {
-      btn.disabled = (results.detalles || []).length > 0;
+      var coberturaError = results.cobertura != null && results.cobertura < 50;
+      btn.disabled = coberturaError;
     }
 
     addLog('info', 'Cruce: ' + (results.match || 0) + ' coincidencias, ' + (results.sinMatch || 0) + ' sin match');
@@ -1273,9 +1296,6 @@ const App = (() => {
         writeAllToOutput();
         return;
       }
-
-      // Etapa 1: boton Actualizar no avanza
-      if (stageNum === 1) return;
 
       // Emitir evento para que el bridge procese antes de avanzar
       var event = new CustomEvent('app:stage-advance', {
