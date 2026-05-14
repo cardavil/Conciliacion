@@ -11,6 +11,9 @@ from io import BytesIO
 from datetime import datetime
 
 
+MAX_DETALLE_INVALIDOS = 50
+
+
 def _es_tipo_texto(dtype):
     return pd.api.types.is_string_dtype(dtype) or dtype == object
 
@@ -245,13 +248,13 @@ def _contar_invalidos(serie, tipo_detectado, decimal_sep=","):
     """
     Cuenta valores que no cumplen el tipo detectado.
     serie: valores no-vacios.
-    Retorna: (n_validos, n_invalidos, muestra_invalidos)
+    Retorna: (n_validos, n_invalidos, muestra_invalidos, detalle_invalidos)
     """
     if len(serie) == 0:
-        return 0, 0, []
+        return 0, 0, [], []
 
     if tipo_detectado == "texto":
-        return len(serie), 0, []
+        return len(serie), 0, [], []
 
     if tipo_detectado == "numerico":
         invalidos_mask = ~serie.apply(lambda v: _es_numero_valido(v, decimal_sep))
@@ -270,12 +273,16 @@ def _contar_invalidos(serie, tipo_detectado, decimal_sep=","):
         invalidos_mask = ~mejor_mask
 
     else:
-        return len(serie), 0, []
+        return len(serie), 0, [], []
 
     n_invalidos = int(invalidos_mask.sum())
     n_validos = len(serie) - n_invalidos
     muestra = [str(v) for v in serie[invalidos_mask].unique()[:5]]
-    return n_validos, n_invalidos, muestra
+    detalle = []
+    if n_invalidos > 0:
+        for idx in serie[invalidos_mask].index[:MAX_DETALLE_INVALIDOS]:
+            detalle.append({"fila": int(idx) + 1, "valor": str(serie[idx])})
+    return n_validos, n_invalidos, muestra, detalle
 
 
 def _verificar_consistencia_separador(ruta, encoding, sep):
@@ -321,7 +328,7 @@ def _perfilar_columna(serie, decimal_sep=","):
     con_valor = serie[~vacios_mask]
 
     tipo_detectado = _detectar_tipo_columna(serie, decimal_sep)
-    n_validos, n_invalidos, muestra_invalidos = _contar_invalidos(con_valor, tipo_detectado, decimal_sep)
+    n_validos, n_invalidos, muestra_invalidos, detalle_invalidos = _contar_invalidos(con_valor, tipo_detectado, decimal_sep)
 
     n_unicos = int(serie.nunique())
     valores_muestra = [str(v) for v in con_valor.unique()[:5]]
@@ -338,6 +345,8 @@ def _perfilar_columna(serie, decimal_sep=","):
         "invalidos": n_invalidos,
         "pct_invalidos": pct_invalidos,
         "muestra_invalidos": muestra_invalidos,
+        "detalle_invalidos": detalle_invalidos,
+        "detalle_truncado": n_invalidos > MAX_DETALLE_INVALIDOS,
         "unicos": n_unicos,
         "total": n_total,
         "valores_muestra": valores_muestra,

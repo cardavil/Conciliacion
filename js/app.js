@@ -500,16 +500,75 @@ const App = (() => {
           // Invalidos
           var tdInvalidos = document.createElement('td');
           var nInv = col.invalidos || 0;
-          tdInvalidos.textContent = nInv + '/' + col.total;
-          if (nInv > 0) {
+          var detalle = col.detalle_invalidos || [];
+          var detailRow = null;
+
+          if (nInv > 0 && detalle.length > 0) {
+            tdInvalidos.className = 'eda-invalidos-toggle';
+            var chevron = document.createElement('span');
+            chevron.className = 'eda-chevron';
+            chevron.textContent = '▶';
+            tdInvalidos.appendChild(chevron);
+            tdInvalidos.appendChild(document.createTextNode(' ' + nInv + '/' + col.total + ' '));
             var invDot = document.createElement('span');
             invDot.className = 'dot dot--warn';
-            invDot.style.marginLeft = '0.25rem';
             tdInvalidos.appendChild(invDot);
-            var invMuestra = col.muestra_invalidos || [];
-            if (invMuestra.length > 0) {
-              tdInvalidos.title = 'Muestra: ' + invMuestra.join(', ');
+
+            detailRow = document.createElement('tr');
+            detailRow.className = 'eda-detalle-row';
+            detailRow.setAttribute('hidden', '');
+            var detailTd = document.createElement('td');
+            detailTd.setAttribute('colspan', '7');
+            detailTd.className = 'eda-detalle-cell';
+            var scrollWrap = document.createElement('div');
+            scrollWrap.className = 'eda-detalle-scroll';
+            var subTable = document.createElement('table');
+            subTable.className = 'tabla tabla--eda-detalle';
+            var subThead = document.createElement('thead');
+            var subTrHead = document.createElement('tr');
+            ['Fila', 'Valor'].forEach(function (t) {
+              var th = document.createElement('th');
+              th.textContent = t;
+              subTrHead.appendChild(th);
+            });
+            subThead.appendChild(subTrHead);
+            subTable.appendChild(subThead);
+            var subTbody = document.createElement('tbody');
+            for (var d = 0; d < detalle.length; d++) {
+              var subTr = document.createElement('tr');
+              var tdFila = document.createElement('td');
+              tdFila.textContent = detalle[d].fila;
+              var tdValor = document.createElement('td');
+              tdValor.textContent = detalle[d].valor;
+              subTr.appendChild(tdFila);
+              subTr.appendChild(tdValor);
+              subTbody.appendChild(subTr);
             }
+            subTable.appendChild(subTbody);
+            scrollWrap.appendChild(subTable);
+            detailTd.appendChild(scrollWrap);
+            if (col.detalle_truncado) {
+              var nota = document.createElement('div');
+              nota.className = 'eda-detalle-nota';
+              nota.textContent = 'Mostrando ' + detalle.length + ' de ' + nInv + ' invalidos';
+              detailTd.appendChild(nota);
+            }
+            detailRow.appendChild(detailTd);
+
+            (function (toggle, detail, chev) {
+              toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (detail.hasAttribute('hidden')) {
+                  detail.removeAttribute('hidden');
+                  chev.textContent = '▼';
+                } else {
+                  detail.setAttribute('hidden', '');
+                  chev.textContent = '▶';
+                }
+              });
+            })(tdInvalidos, detailRow, chevron);
+          } else {
+            tdInvalidos.textContent = nInv + '/' + col.total;
           }
 
           // Validos
@@ -539,6 +598,9 @@ const App = (() => {
           tr.appendChild(tdUnicos);
           tr.appendChild(tdMuestra);
           tbody.appendChild(tr);
+          if (detailRow) {
+            tbody.appendChild(detailRow);
+          }
         }
         table.appendChild(tbody);
         body.appendChild(table);

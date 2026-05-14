@@ -1069,6 +1069,72 @@ body {
   font-size: 0.75rem;
 }
 
+.eda-invalidos-toggle {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.eda-invalidos-toggle:hover {
+  background: var(--surface-page);
+}
+
+.eda-chevron {
+  display: inline-block;
+  font-size: 0.5rem;
+  margin-right: 0.25rem;
+  vertical-align: middle;
+}
+
+.eda-detalle-row[hidden] {
+  display: none;
+}
+
+.eda-detalle-cell {
+  padding: 0 var(--space-sm) var(--space-sm) var(--space-lg) !important;
+  background: var(--surface-page);
+}
+
+.eda-detalle-scroll {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  margin-top: var(--space-xs);
+}
+
+.tabla--eda-detalle {
+  font-size: 0.6875rem;
+  width: 100%;
+}
+
+.tabla--eda-detalle thead th {
+  font-size: 0.5625rem;
+  padding: var(--space-xs) var(--space-sm);
+  position: sticky;
+  top: 0;
+  background: var(--surface-page);
+}
+
+.tabla--eda-detalle tbody td {
+  padding: 2px var(--space-sm);
+  font-size: 0.6875rem;
+  font-family: var(--font-mono);
+}
+
+.tabla--eda-detalle tbody td:first-child {
+  width: 60px;
+  text-align: right;
+  color: var(--text-muted);
+}
+
+.eda-detalle-nota {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: var(--space-xs);
+}
+
 /* ============================================
    SALIDAS ESPERADAS
    ============================================ */
