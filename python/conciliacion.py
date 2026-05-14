@@ -104,16 +104,16 @@ def leer_archivo(ruta):
 
     try:
         if ext in (".xlsx", ".xls"):
-            df = pd.read_excel(ruta, engine="openpyxl", dtype=str)
+            df = pd.read_excel(ruta, engine="openpyxl", dtype=str, keep_default_na=False)
         elif ext in (".csv", ".txt", ".tsv"):
             encoding = detectar_encoding(ruta)
             sep = detectar_separador(ruta, encoding)
-            df = pd.read_csv(ruta, sep=sep, encoding=encoding, dtype=str)
+            df = pd.read_csv(ruta, sep=sep, encoding=encoding, dtype=str, keep_default_na=False)
         else:
             # Intentar como texto con deteccion automatica
             encoding = detectar_encoding(ruta)
             sep = detectar_separador(ruta, encoding)
-            df = pd.read_csv(ruta, sep=sep, encoding=encoding, dtype=str)
+            df = pd.read_csv(ruta, sep=sep, encoding=encoding, dtype=str, keep_default_na=False)
 
         # Limpiar nombres de columna
         df.columns = [str(c).strip() for c in df.columns]
@@ -315,7 +315,7 @@ def analizar_archivo(nombre, ruta):
     df = None
     try:
         if ext in (".xlsx", ".xls"):
-            df = pd.read_excel(ruta, engine="openpyxl", dtype=str)
+            df = pd.read_excel(ruta, engine="openpyxl", dtype=str, keep_default_na=False)
             df.columns = [str(c).strip() for c in df.columns]
             meta["encoding"] = "N/A"
             meta["separador"] = "N/A"
@@ -330,7 +330,7 @@ def analizar_archivo(nombre, ruta):
             if not sep_ok:
                 mensajes.append(_msg("warn", sep_msg))
 
-            df = pd.read_csv(ruta, sep=sep, encoding=encoding, dtype=str)
+            df = pd.read_csv(ruta, sep=sep, encoding=encoding, dtype=str, keep_default_na=False)
             df.columns = [str(c).strip() for c in df.columns]
             mensajes.append(_msg("ok", "Archivo de texto leido ({}, sep={})".format(
                 encoding, repr(sep)
