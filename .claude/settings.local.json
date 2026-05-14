@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(python -c \"from src.logger import get_logger; log = get_logger\\('test'\\); log.info\\('CC 12345678 — conciliacion OK'\\); log.warning\\('CC 87654321 — faltante en APORTES'\\); log.error\\('CC 11111111 — archivo no encontrado'\\); log.critical\\('Etapa 2 detenida'\\)\")",
+      "Bash(xargs -0 ls -la)",
+      "Bash(awk '{printf \"%-50s %s\\\\n\", $NF, $5}')",
+      "Bash(awk '$5 > 0 && $NF !~ /__init__\\\\.py$/ {printf \"%-50s %6s bytes\\\\n\", $NF, $5}')",
+      "Bash(git rm *)",
+      "Bash(rm -rf .git)",
+      "Bash(git init *)",
+      "Bash(git branch *)",
+      "Bash(git remote *)"
+    ]
+  }
+}
