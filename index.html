@@ -46,6 +46,7 @@
               </button>
               <span class="selector-carpeta__ruta" id="ruta-entrada"
                     aria-live="polite">Ninguna carpeta seleccionada</span>
+              <span class="dot dot--muted" id="estado-entrada" aria-label="Estado carpeta entrada"></span>
               <span class="selector-carpeta__conteo" id="conteo-entrada"></span>
             </div>
             <div class="selector-carpeta" id="selector-salida">
@@ -56,6 +57,7 @@
               </button>
               <span class="selector-carpeta__ruta" id="ruta-salida"
                     aria-live="polite">Ninguna carpeta seleccionada</span>
+              <span class="dot dot--muted" id="estado-salida" aria-label="Estado carpeta salida"></span>
             </div>
           </div>
         </div>
@@ -75,20 +77,6 @@
             </thead>
             <tbody id="archivos-detectados-body"></tbody>
           </table>
-        </div>
-
-        <!-- Resultados del analisis EDA por archivo -->
-        <div class="eda-resultados">
-          <h3 class="eda-resultados__titulo">Analisis de calidad por archivo</h3>
-          <div id="eda-resultados" class="eda-resultados__lista"
-               aria-label="Resultados del analisis de calidad"></div>
-        </div>
-
-        <!-- Salidas esperadas -->
-        <div class="salidas-esperadas">
-          <h3 class="salidas-esperadas__titulo">Salidas esperadas</h3>
-          <div id="salidas-esperadas" class="salidas-esperadas__lista"
-               aria-label="Archivos de salida que generara el sistema"></div>
         </div>
 
         <div class="etapa__acciones">
@@ -114,6 +102,13 @@
         <!-- Alerta superior (visible si hay errores) -->
         <div class="alerta alerta--error" role="alert" hidden>
           <span class="alerta__mensaje"></span>
+        </div>
+
+        <!-- Analisis de calidad por archivo (EDA) -->
+        <div class="eda-resultados">
+          <h3 class="eda-resultados__titulo">Analisis de calidad por archivo</h3>
+          <div id="eda-resultados" class="eda-resultados__lista"
+               aria-label="Resultados del analisis de calidad"></div>
         </div>
 
         <!-- Tarjetas de fuentes de datos -->

@@ -75,11 +75,11 @@ God-file     : Un solo HTML que funciona offline (se genera al final)
 
 ```
 ETAPA 1 — Revisión de Entorno
-  Input  : archivos subidos por el usuario (drag & drop)
-  EDA    : perfil automático por columna (tipo, nulos, vacíos, muestra, llave sugerida)
-  Output : vista previa de salidas esperadas (consolidado, extractos, excepciones, log)
+  Verificar carpeta de entrada (conectada, archivos detectados)
+  Verificar carpeta de salida (conectada)
 
 ETAPA 2 — Validación por Fuente
+  EDA automático: perfil por columna (tipo, vacíos, válidos, inválidos, muestra)
   Validar cada archivo individualmente (estructura, tipos, llaves)
   Umbrales: >20% nulos = warn, >50% = crítico
 

@@ -159,8 +159,6 @@ const App = (() => {
     if (newState === 'active') {
       state.currentStage = stageNum;
     }
-
-    renderOutputs();
   }
 
   function setStageWarnCount(stageNum, count) {
@@ -246,6 +244,8 @@ const App = (() => {
     state.inputDirHandle = dirHandle;
     var rutaEl = $('#ruta-entrada');
     if (rutaEl) rutaEl.textContent = dirHandle.name;
+    var dotEntrada = $('#estado-entrada');
+    if (dotEntrada) dotEntrada.className = 'dot dot--ok';
     addLog('info', 'Carpeta de entrada: ' + dirHandle.name);
 
     await readInputDirectory(dirHandle);
@@ -301,6 +301,10 @@ const App = (() => {
     }
 
     renderFileList(state.files);
+
+    var btnStage1 = $('#etapa-1 .boton--primario');
+    if (btnStage1) btnStage1.disabled = false;
+
     document.dispatchEvent(new CustomEvent('app:files-loaded', {
       detail: { count: state.files.size }
     }));
@@ -323,8 +327,9 @@ const App = (() => {
     state.outputDirHandle = dirHandle;
     var rutaEl = $('#ruta-salida');
     if (rutaEl) rutaEl.textContent = dirHandle.name;
+    var dotSalida = $('#estado-salida');
+    if (dotSalida) dotSalida.className = 'dot dot--ok';
     addLog('ok', 'Carpeta de salida: ' + dirHandle.name);
-    renderOutputs();
   }
 
   /* ============================================
@@ -459,7 +464,7 @@ const App = (() => {
 
         var thead = document.createElement('thead');
         var trHead = document.createElement('tr');
-        var headers = ['Columna', 'Tipo', 'Vacios', 'Validos', 'Invalidos', 'Unicos', 'Muestra'];
+        var headers = ['Columna', 'Tipo', 'Invalidos', 'Validos', 'Vacios', 'Unicos', 'Muestra'];
         for (var h = 0; h < headers.length; h++) {
           var th = document.createElement('th');
           th.setAttribute('scope', 'col');
@@ -528,9 +533,9 @@ const App = (() => {
 
           tr.appendChild(tdNombre);
           tr.appendChild(tdTipo);
-          tr.appendChild(tdVacios);
-          tr.appendChild(tdValidos);
           tr.appendChild(tdInvalidos);
+          tr.appendChild(tdValidos);
+          tr.appendChild(tdVacios);
           tr.appendChild(tdUnicos);
           tr.appendChild(tdMuestra);
           tbody.appendChild(tr);
@@ -575,13 +580,13 @@ const App = (() => {
     }
 
     if (totalWarnings > 0) {
-      setStageState(1, 'warn');
-      setStageWarnCount(1, totalWarnings);
+      setStageState(2, 'warn');
+      setStageWarnCount(2, totalWarnings);
     }
 
-    // Habilitar boton Siguiente: solo errores bloquean
-    var btnStage1 = $('#etapa-1 .boton--primario');
-    if (btnStage1) {
+    // Habilitar boton Siguiente etapa 2: solo errores bloquean
+    var btnStage2 = $('#etapa-2 .boton--primario');
+    if (btnStage2) {
       var hasErrors = false;
       for (var fn = 0; fn < fileNames.length; fn++) {
         if (edaResults[fileNames[fn]] && edaResults[fileNames[fn]].estado === 'error') {
@@ -589,7 +594,7 @@ const App = (() => {
           break;
         }
       }
-      btnStage1.disabled = hasErrors;
+      btnStage2.disabled = hasErrors;
     }
 
     addLog('ok', fileNames.length + ' archivo(s) analizado(s)');
@@ -615,93 +620,6 @@ const App = (() => {
     wrapper.appendChild(fill);
     wrapper.appendChild(label);
     return wrapper;
-  }
-
-  /* ============================================
-     RENDERIZADO: ETAPA 1 — SALIDAS ESPERADAS
-     ============================================ */
-
-  var SALIDAS_ESPERADAS = [
-    {
-      id: 'conciliacion_consolidada',
-      nombre: 'Conciliacion consolidada',
-      formato: '.xlsx',
-      etapa: 4,
-      descripcion: 'Resultado del cruce cuenta de cobro vs descuentos'
-    },
-    {
-      id: 'extractos_empresa',
-      nombre: 'Extractos por empresa',
-      formato: '.xlsx',
-      etapa: 4,
-      descripcion: 'Detalle de diferencias por empresa vinculante'
-    },
-    {
-      id: 'reporte_excepciones',
-      nombre: 'Reporte de excepciones',
-      formato: '.xlsx',
-      etapa: 4,
-      descripcion: 'Excepciones que requirieron accion del analista'
-    },
-    {
-      id: 'log_auditoria',
-      nombre: 'Log de auditoria',
-      formato: '.xlsx',
-      etapa: 5,
-      descripcion: 'Registro de todas las acciones y decisiones'
-    }
-  ];
-
-  function renderOutputs() {
-    var container = $('#salidas-esperadas');
-    if (!container) return;
-    container.innerHTML = '';
-
-    var currentStage = getCurrentStage();
-
-    for (var i = 0; i < SALIDAS_ESPERADAS.length; i++) {
-      var salida = SALIDAS_ESPERADAS[i];
-      var completada = currentStage > salida.etapa;
-      var enProceso = currentStage === salida.etapa;
-      var estadoKey = completada ? 'listo' : (enProceso ? 'pendiente' : 'bloqueado');
-      var estadoTexto = completada ? 'Generado' : (enProceso ? 'En proceso' : 'Etapa ' + salida.etapa);
-
-      var item = document.createElement('div');
-      item.className = 'salida-item salida-item--' + estadoKey;
-
-      var dot = document.createElement('span');
-      dot.className = 'dot dot--' + (completada ? 'ok' : (enProceso ? 'info' : 'muted'));
-
-      var nombre = document.createElement('span');
-      nombre.className = 'salida-item__nombre';
-      nombre.textContent = salida.nombre;
-      nombre.title = salida.descripcion;
-
-      var formato = document.createElement('span');
-      formato.className = 'salida-item__formato';
-      formato.textContent = salida.formato;
-
-      var estado = document.createElement('span');
-      estado.className = 'salida-item__estado salida-item__estado--' + estadoKey;
-      estado.textContent = estadoTexto;
-
-      item.appendChild(dot);
-      item.appendChild(nombre);
-      item.appendChild(formato);
-      item.appendChild(estado);
-      container.appendChild(item);
-    }
-  }
-
-  function getCurrentStage() {
-    for (var i = 5; i >= 1; i--) {
-      var section = $('#etapa-' + i);
-      if (section) {
-        var st = section.getAttribute('data-state');
-        if (st === 'ok' || st === 'active' || st === 'warn') return i;
-      }
-    }
-    return 1;
   }
 
   /* ============================================
@@ -1297,6 +1215,13 @@ const App = (() => {
         return;
       }
 
+      // Etapa 1: avanzar y disparar EDA en etapa 2
+      if (stageNum === 1) {
+        completeStage(1, 'ok');
+        runEDA();
+        return;
+      }
+
       // Emitir evento para que el bridge procese antes de avanzar
       var event = new CustomEvent('app:stage-advance', {
         detail: { stage: stageNum },
@@ -1331,42 +1256,40 @@ const App = (() => {
   }
 
   /* ============================================
-     EDA: DISPARAR ANALISIS AUTOMATICO
+     EDA: ANALISIS DE CALIDAD POR ARCHIVO
      ============================================ */
 
-  function initEDA() {
-    document.addEventListener('app:files-loaded', async function () {
-      if (typeof PyBridge === 'undefined') return;
+  async function runEDA() {
+    if (typeof PyBridge === 'undefined') return;
 
-      if (!PyBridge.isReady()) {
-        addLog('info', 'Inicializando motor de procesamiento...');
-        try {
-          await PyBridge.init(function (msg) { addLog('info', msg); });
-        } catch (err) {
-          addLog('error', 'No se pudo inicializar el motor de procesamiento');
-          return;
-        }
-      }
-
-      var filesMap = state.files;
-      if (filesMap.size === 0) return;
-
-      addLog('info', 'Analizando ' + filesMap.size + ' archivo(s)...');
-
+    if (!PyBridge.isReady()) {
+      addLog('info', 'Inicializando motor de procesamiento...');
       try {
-        var results = await PyBridge.analyzeAllFiles(filesMap);
-        renderEDA(results);
-
-        filesMap.forEach(function (info, name) {
-          if (results[name] && results[name].estado !== 'error') {
-            info.category = 'analizado';
-          }
-        });
-        renderFileList(filesMap);
+        await PyBridge.init(function (msg) { addLog('info', msg); });
       } catch (err) {
-        addLog('error', 'Error en analisis EDA: ' + (err.message || err));
+        addLog('error', 'No se pudo inicializar el motor de procesamiento');
+        return;
       }
-    });
+    }
+
+    var filesMap = state.files;
+    if (filesMap.size === 0) return;
+
+    addLog('info', 'Analizando ' + filesMap.size + ' archivo(s)...');
+
+    try {
+      var results = await PyBridge.analyzeAllFiles(filesMap);
+      renderEDA(results);
+
+      filesMap.forEach(function (info, name) {
+        if (results[name] && results[name].estado !== 'error') {
+          info.category = 'analizado';
+        }
+      });
+      renderFileList(filesMap);
+    } catch (err) {
+      addLog('error', 'Error en analisis EDA: ' + (err.message || err));
+    }
   }
 
   /* ============================================
@@ -1386,7 +1309,6 @@ const App = (() => {
     initDirectoryPickers();
     initAdvanceButtons();
     initRefreshButton();
-    initEDA();
 
     addLog('info', 'Esperando archivos...');
   }
@@ -1403,7 +1325,6 @@ const App = (() => {
     completeStage: completeStage,
     renderFileList: renderFileList,
     renderEDA: renderEDA,
-    renderOutputs: renderOutputs,
     renderValidation: renderValidation,
     renderCrossCheck: renderCrossCheck,
     renderConciliation: renderConciliation,

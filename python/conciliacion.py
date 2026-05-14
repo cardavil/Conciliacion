@@ -392,14 +392,6 @@ def analizar_archivo(nombre, ruta):
         pc = _perfilar_columna(df[col])
         perfil_columnas.append(pc)
 
-        if pc["pct_vacios"] > 50:
-            mensajes.append(_msg("warn", "{}: {:.0f}% valores vacios (critico)".format(
-                col, pc["pct_vacios"]
-            )))
-        elif pc["pct_vacios"] > 20:
-            mensajes.append(_msg("warn", "{}: {:.0f}% valores vacios".format(
-                col, pc["pct_vacios"]
-            )))
         if pc["invalidos"] > 0:
             mensajes.append(_msg("warn", "{}: {} valores invalidos para tipo {}".format(
                 col, pc["invalidos"], pc["tipo_detectado"]
@@ -499,21 +491,8 @@ def validar_fuente(nombre, ruta, perfil=None):
                 ", ".join(sorted(cols_reales))
             )))
 
-    # Detectar columnas con muchos vacios (umbral 20%, critico 50%)
+    # Detectar valores invalidos por columna
     for info_col in perfil_inferido["columnas"]:
-        pct_vacios = info_col.get("pct_vacios", 0)
-        if pct_vacios > 50:
-            if estado != "error":
-                estado = "warn"
-            mensajes.append(_msg("warn", "{}: {:.0f}% de valores vacios (critico)".format(
-                info_col["nombre"], pct_vacios
-            )))
-        elif pct_vacios > 20:
-            if estado != "error":
-                estado = "warn"
-            mensajes.append(_msg("warn", "{}: {:.0f}% de valores vacios".format(
-                info_col["nombre"], pct_vacios
-            )))
         if info_col.get("invalidos", 0) > 0:
             if estado != "error":
                 estado = "warn"
