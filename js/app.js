@@ -15,6 +15,7 @@ const App = (() => {
 
   const state = {
     files: new Map(),
+    edaResults: {},
     auditTrail: [],
     currentStage: 1,
     reportBlobs: []
@@ -317,6 +318,223 @@ const App = (() => {
     });
 
     addLog('ok', fileMap.size + ' archivo(s) detectado(s)');
+  }
+
+  /* ============================================
+     RENDERIZADO: ETAPA 1 — ANALISIS EDA
+     ============================================ */
+
+  function renderEDA(edaResults) {
+    state.edaResults = edaResults;
+    var container = $('#eda-resultados');
+    if (!container) return;
+    container.innerHTML = '';
+
+    var fileNames = Object.keys(edaResults);
+    if (fileNames.length === 0) return;
+
+    var totalWarnings = 0;
+
+    for (var f = 0; f < fileNames.length; f++) {
+      var name = fileNames[f];
+      var result = edaResults[name];
+      var datos = result.datos || {};
+      var estado = result.estado || 'ok';
+      var mensajes = result.mensajes || [];
+
+      var card = document.createElement('div');
+      card.className = 'tarjeta-eda tarjeta-eda--' + estado;
+
+      // Header
+      var header = document.createElement('div');
+      header.className = 'tarjeta-eda__header';
+
+      var dot = document.createElement('span');
+      dot.className = 'dot dot--' + estado;
+
+      var nombre = document.createElement('span');
+      nombre.className = 'tarjeta-eda__nombre';
+      nombre.textContent = datos.nombre || name;
+
+      var meta = document.createElement('span');
+      meta.className = 'tarjeta-eda__meta';
+      var metaParts = [];
+      if (datos.filas != null) metaParts.push(datos.filas + ' filas');
+      if (datos.columnas != null) metaParts.push(datos.columnas + ' cols');
+      if (datos.encoding && datos.encoding !== 'N/A') metaParts.push(datos.encoding);
+      if (datos.llave_sugerida) metaParts.push('llave: ' + datos.llave_sugerida);
+      meta.textContent = metaParts.join(' · ');
+
+      var warnCount = mensajes.filter(function (m) {
+        return m.nivel === 'warn' || m.nivel === 'error';
+      }).length;
+      totalWarnings += warnCount;
+
+      var badge = document.createElement('span');
+      if (estado === 'ok') {
+        badge.className = 'badge badge--ok';
+        badge.textContent = 'OK';
+      } else if (estado === 'warn') {
+        badge.className = 'badge badge--warn';
+        badge.textContent = warnCount + ' alerta' + (warnCount !== 1 ? 's' : '');
+      } else {
+        badge.className = 'badge badge--error';
+        badge.textContent = 'Error';
+      }
+
+      header.appendChild(dot);
+      header.appendChild(nombre);
+      header.appendChild(meta);
+      header.appendChild(badge);
+      card.appendChild(header);
+
+      // Body: tabla de columnas
+      var perfilColumnas = datos.perfil_columnas || [];
+      if (perfilColumnas.length > 0) {
+        var body = document.createElement('div');
+        body.className = 'tarjeta-eda__body';
+        body.setAttribute('hidden', '');
+
+        var table = document.createElement('table');
+        table.className = 'tabla tabla--eda';
+        table.setAttribute('aria-label', 'Perfil de columnas de ' + name);
+
+        var thead = document.createElement('thead');
+        var trHead = document.createElement('tr');
+        var headers = ['Columna', 'Tipo', 'Nulos', 'Vacios', 'Unicos', 'Muestra'];
+        for (var h = 0; h < headers.length; h++) {
+          var th = document.createElement('th');
+          th.setAttribute('scope', 'col');
+          th.textContent = headers[h];
+          trHead.appendChild(th);
+        }
+        thead.appendChild(trHead);
+        table.appendChild(thead);
+
+        var tbody = document.createElement('tbody');
+        for (var c = 0; c < perfilColumnas.length; c++) {
+          var col = perfilColumnas[c];
+          var tr = document.createElement('tr');
+
+          // Nombre de columna
+          var tdNombre = document.createElement('td');
+          tdNombre.textContent = col.nombre;
+          if (col.nombre === datos.llave_sugerida) {
+            var keyBadge = document.createElement('span');
+            keyBadge.className = 'badge badge--info';
+            keyBadge.textContent = 'llave';
+            keyBadge.style.marginLeft = '0.5rem';
+            tdNombre.appendChild(keyBadge);
+          }
+
+          // Tipo
+          var tdTipo = document.createElement('td');
+          var tipoTag = document.createElement('span');
+          tipoTag.className = 'tag-tipo tag-tipo--' + col.tipo_detectado;
+          tipoTag.textContent = col.tipo_detectado;
+          tdTipo.appendChild(tipoTag);
+          if (col.formato_inconsistente) {
+            var warnDot = document.createElement('span');
+            warnDot.className = 'dot dot--warn';
+            warnDot.title = 'Formato inconsistente';
+            warnDot.style.marginLeft = '0.25rem';
+            tdTipo.appendChild(warnDot);
+          }
+
+          // Nulos con mini-bar
+          var tdNulos = document.createElement('td');
+          tdNulos.appendChild(buildMiniBar(col.pct_nulo || 0));
+
+          // Vacios
+          var tdVacios = document.createElement('td');
+          tdVacios.textContent = col.vacios;
+
+          // Unicos
+          var tdUnicos = document.createElement('td');
+          tdUnicos.textContent = col.unicos + '/' + col.total;
+
+          // Muestra
+          var tdMuestra = document.createElement('td');
+          tdMuestra.className = 'eda-muestra';
+          var vals = col.valores_muestra || [];
+          tdMuestra.textContent = vals.length > 0 ? vals.join(', ') : '(vacio)';
+          tdMuestra.title = vals.join(', ');
+
+          tr.appendChild(tdNombre);
+          tr.appendChild(tdTipo);
+          tr.appendChild(tdNulos);
+          tr.appendChild(tdVacios);
+          tr.appendChild(tdUnicos);
+          tr.appendChild(tdMuestra);
+          tbody.appendChild(tr);
+        }
+        table.appendChild(tbody);
+        body.appendChild(table);
+
+        // Alertas
+        var alertMsgs = mensajes.filter(function (m) { return m.nivel !== 'ok'; });
+        if (alertMsgs.length > 0) {
+          var alertList = document.createElement('div');
+          alertList.className = 'tarjeta-eda__alertas';
+          for (var m = 0; m < alertMsgs.length; m++) {
+            var alertDiv = document.createElement('div');
+            alertDiv.className = 'tarjeta-eda__alerta';
+            var aDot = document.createElement('span');
+            aDot.className = 'dot dot--' + alertMsgs[m].nivel;
+            var aText = document.createElement('span');
+            aText.textContent = alertMsgs[m].texto;
+            alertDiv.appendChild(aDot);
+            alertDiv.appendChild(aText);
+            alertList.appendChild(alertDiv);
+          }
+          body.appendChild(alertList);
+        }
+
+        card.appendChild(body);
+
+        // Toggle body
+        (function (hdr, bdy) {
+          hdr.addEventListener('click', function () {
+            if (bdy.hasAttribute('hidden')) {
+              bdy.removeAttribute('hidden');
+            } else {
+              bdy.setAttribute('hidden', '');
+            }
+          });
+        })(header, body);
+      }
+
+      container.appendChild(card);
+    }
+
+    if (totalWarnings > 0) {
+      setStageState(1, 'warn');
+      setStageWarnCount(1, totalWarnings);
+    }
+
+    addLog('ok', fileNames.length + ' archivo(s) analizado(s)');
+  }
+
+  function buildMiniBar(pct) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'mini-bar';
+
+    var fill = document.createElement('div');
+    fill.className = 'mini-bar__fill';
+    if (pct > 50) {
+      fill.className += ' mini-bar__fill--error';
+    } else if (pct > 20) {
+      fill.className += ' mini-bar__fill--warn';
+    }
+    fill.style.width = Math.min(pct, 100) + '%';
+
+    var label = document.createElement('span');
+    label.className = 'mini-bar__label';
+    label.textContent = pct + '%';
+
+    wrapper.appendChild(fill);
+    wrapper.appendChild(label);
+    return wrapper;
   }
 
   /* ============================================
@@ -890,6 +1108,45 @@ const App = (() => {
   }
 
   /* ============================================
+     EDA: DISPARAR ANALISIS AUTOMATICO
+     ============================================ */
+
+  function initEDA() {
+    document.addEventListener('app:files-loaded', async function () {
+      if (typeof PyBridge === 'undefined') return;
+
+      if (!PyBridge.isReady()) {
+        addLog('info', 'Inicializando motor de procesamiento...');
+        try {
+          await PyBridge.init(function (msg) { addLog('info', msg); });
+        } catch (err) {
+          addLog('error', 'No se pudo inicializar el motor de procesamiento');
+          return;
+        }
+      }
+
+      var filesMap = state.files;
+      if (filesMap.size === 0) return;
+
+      addLog('info', 'Analizando ' + filesMap.size + ' archivo(s)...');
+
+      try {
+        var results = await PyBridge.analyzeAllFiles(filesMap);
+        renderEDA(results);
+
+        filesMap.forEach(function (info, name) {
+          if (results[name] && results[name].estado !== 'error') {
+            info.category = 'analizado';
+          }
+        });
+        renderFileList(filesMap);
+      } catch (err) {
+        addLog('error', 'Error en analisis EDA: ' + (err.message || err));
+      }
+    });
+  }
+
+  /* ============================================
      INICIALIZACION
      ============================================ */
 
@@ -906,6 +1163,7 @@ const App = (() => {
     initDragDrop();
     initAdvanceButtons();
     initRefreshButton();
+    initEDA();
 
     addLog('info', 'Esperando archivos...');
   }
@@ -921,11 +1179,13 @@ const App = (() => {
     setStageWarnCount: setStageWarnCount,
     completeStage: completeStage,
     renderFileList: renderFileList,
+    renderEDA: renderEDA,
     renderValidation: renderValidation,
     renderCrossCheck: renderCrossCheck,
     renderConciliation: renderConciliation,
     renderReports: renderReports,
     getFiles: function () { return state.files; },
+    getEdaResults: function () { return state.edaResults; },
     getAuditTrail: function () { return state.auditTrail; },
     downloadAll: downloadAll
   };

@@ -12,7 +12,9 @@
       "Bash(rm -rf .git)",
       "Bash(git init *)",
       "Bash(git branch *)",
-      "Bash(git remote *)"
+      "Bash(git remote *)",
+      "PowerShell(git pull *)",
+      "PowerShell(git add *)"
     ]
   }
 }

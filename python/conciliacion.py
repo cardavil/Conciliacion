@@ -100,7 +100,7 @@ def leer_archivo(ruta):
 
     try:
         if ext in (".xlsx", ".xls"):
-            df = pd.read_excel(ruta, engine="openpyxl")
+            df = pd.read_excel(ruta, engine="openpyxl", dtype=str)
         elif ext in (".csv", ".txt", ".tsv"):
             encoding = detectar_encoding(ruta)
             sep = detectar_separador(ruta, encoding)
@@ -145,6 +145,129 @@ def resultado_a_json(resultado):
     return json.dumps(converted, ensure_ascii=False, default=str)
 
 
+def _detectar_tipo_columna(serie):
+    """
+    Detecta el tipo de una columna: 'numerico', 'fecha' o 'texto'.
+    Analiza una muestra de hasta 100 valores no nulos.
+    Retorna: (tipo_detectado, formato_inconsistente)
+    """
+    muestra = serie.dropna()
+    if serie.dtype == object:
+        muestra = muestra[muestra.astype(str).str.strip() != ""]
+    muestra = muestra.head(100)
+
+    if len(muestra) == 0:
+        return "texto", False
+
+    # Intentar numerico
+    if serie.dtype == object:
+        try:
+            pd.to_numeric(muestra, errors="raise")
+            return "numerico", False
+        except (ValueError, TypeError):
+            pass
+
+        # Detectar formato numerico regional inconsistente
+        patron = muestra.astype(str).str.match(
+            r'^-?\d{1,3}([.,]\d{3})*([.,]\d+)?$'
+        )
+        if patron.sum() > len(muestra) * 0.5:
+            return "numerico", True
+    elif pd.api.types.is_numeric_dtype(serie):
+        return "numerico", False
+
+    # Intentar fecha
+    if serie.dtype == object:
+        formatos_fecha = [
+            "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y",
+            "%Y%m%d", "%d-%m-%Y", "%d.%m.%Y",
+            "%Y-%m-%d %H:%M:%S", "%d/%m/%Y %H:%M:%S",
+        ]
+        for fmt in formatos_fecha:
+            try:
+                pd.to_datetime(muestra, format=fmt, errors="raise")
+                return "fecha", False
+            except (ValueError, TypeError):
+                continue
+
+        try:
+            resultado = pd.to_datetime(muestra, errors="coerce", dayfirst=True)
+            tasa_exito = resultado.notna().sum() / len(muestra)
+            if tasa_exito > 0.8:
+                return "fecha", False
+        except Exception:
+            pass
+
+    return "texto", False
+
+
+def _verificar_consistencia_separador(ruta, encoding, sep):
+    """
+    Verifica que el separador sea consistente entre header y datos.
+    Retorna: (consistente, mensaje o None)
+    """
+    try:
+        with open(ruta, "r", encoding=encoding) as f:
+            lineas = []
+            for i, linea in enumerate(f):
+                if i >= 20:
+                    break
+                lineas.append(linea.rstrip("\n\r"))
+    except Exception:
+        return True, None
+
+    if len(lineas) < 2:
+        return True, None
+
+    conteo_header = lineas[0].count(sep)
+    conteos_datos = [linea.count(sep) for linea in lineas[1:] if linea.strip()]
+
+    if not conteos_datos or conteo_header == 0:
+        return True, None
+
+    inconsistentes = sum(1 for c in conteos_datos if c != conteo_header)
+    if inconsistentes > 0:
+        return False, "Header tiene {} separadores, pero {}/{} lineas de datos difieren".format(
+            conteo_header, inconsistentes, len(conteos_datos)
+        )
+
+    return True, None
+
+
+def _perfilar_columna(serie):
+    """
+    Genera perfil completo de una columna: tipo, nulos, vacios, muestra.
+    Retorna dict con el perfil.
+    """
+    n_total = len(serie)
+    n_nulos = int(serie.isna().sum())
+    n_vacios = 0
+    if serie.dtype == object:
+        n_vacios = int((serie.astype(str).str.strip() == "").sum())
+
+    tipo_detectado, formato_inconsistente = _detectar_tipo_columna(serie)
+
+    muestra_vals = serie.dropna()
+    if serie.dtype == object:
+        muestra_vals = muestra_vals[muestra_vals.astype(str).str.strip() != ""]
+    valores_muestra = [str(v) for v in muestra_vals.unique()[:5]]
+
+    n_unicos = int(serie.nunique())
+    pct_nulo = round((n_nulos + n_vacios) / n_total * 100, 1) if n_total > 0 else 0
+
+    return {
+        "nombre": serie.name,
+        "tipo_detectado": tipo_detectado,
+        "formato_inconsistente": formato_inconsistente,
+        "nulos": n_nulos,
+        "vacios": n_vacios,
+        "pct_nulo": pct_nulo,
+        "unicos": n_unicos,
+        "total": n_total,
+        "valores_muestra": valores_muestra,
+    }
+
+
 # ============================================
 # ETAPA 1 — REVISION DE ENTORNO
 # ============================================
@@ -152,9 +275,10 @@ def resultado_a_json(resultado):
 def analizar_archivo(nombre, ruta):
     """
     Analiza un archivo individual sin asumir estructura.
-    Detecta: formato, encoding, separador, numero de filas/columnas,
-    nombres de columnas.
-    Retorna dict con metadatos del archivo.
+    Detecta: formato, encoding, separador, filas, columnas,
+    perfil por columna (tipo, nulos, vacios, muestra), llave sugerida,
+    filas vacias, consistencia de separador.
+    Retorna dict con metadatos y perfil completo.
     """
     mensajes = []
     ext = os.path.splitext(nombre)[1].lower()
@@ -168,6 +292,9 @@ def analizar_archivo(nombre, ruta):
         "filas": 0,
         "columnas": 0,
         "nombres_columnas": [],
+        "perfil_columnas": [],
+        "llave_sugerida": None,
+        "filas_vacias": 0,
     }
 
     try:
@@ -175,17 +302,13 @@ def analizar_archivo(nombre, ruta):
     except Exception:
         pass
 
+    df = None
     try:
         if ext in (".xlsx", ".xls"):
-            df = pd.read_excel(ruta, engine="openpyxl", nrows=0)
+            df = pd.read_excel(ruta, engine="openpyxl", dtype=str)
+            df.columns = [str(c).strip() for c in df.columns]
             meta["encoding"] = "N/A"
             meta["separador"] = "N/A"
-
-            df_full = pd.read_excel(ruta, engine="openpyxl")
-            meta["filas"] = len(df_full)
-            meta["columnas"] = len(df_full.columns)
-            meta["nombres_columnas"] = [str(c).strip() for c in df_full.columns]
-
             mensajes.append(_msg("ok", "Archivo Excel leido correctamente"))
         else:
             encoding = detectar_encoding(ruta)
@@ -193,11 +316,12 @@ def analizar_archivo(nombre, ruta):
             meta["encoding"] = encoding
             meta["separador"] = repr(sep)
 
-            df = pd.read_csv(ruta, sep=sep, encoding=encoding, dtype=str)
-            meta["filas"] = len(df)
-            meta["columnas"] = len(df.columns)
-            meta["nombres_columnas"] = [str(c).strip() for c in df.columns]
+            sep_ok, sep_msg = _verificar_consistencia_separador(ruta, encoding, sep)
+            if not sep_ok:
+                mensajes.append(_msg("warn", sep_msg))
 
+            df = pd.read_csv(ruta, sep=sep, encoding=encoding, dtype=str)
+            df.columns = [str(c).strip() for c in df.columns]
             mensajes.append(_msg("ok", "Archivo de texto leido ({}, sep={})".format(
                 encoding, repr(sep)
             )))
@@ -206,10 +330,56 @@ def analizar_archivo(nombre, ruta):
         mensajes.append(_msg("error", "No se pudo analizar: {}".format(str(e))))
         return _respuesta("error", mensajes, meta)
 
-    if meta["filas"] == 0:
-        mensajes.append(_msg("warn", "El archivo no tiene filas de datos"))
+    meta["filas"] = len(df)
+    meta["columnas"] = len(df.columns)
+    meta["nombres_columnas"] = list(df.columns)
 
-    return _respuesta("ok", mensajes, meta)
+    if len(df) == 0:
+        mensajes.append(_msg("warn", "El archivo no tiene filas de datos"))
+        estado_final = "warn"
+        return _respuesta(estado_final, mensajes, meta)
+
+    # Perfil por columna
+    perfil_columnas = []
+    for col in df.columns:
+        pc = _perfilar_columna(df[col])
+        perfil_columnas.append(pc)
+
+        if pc["pct_nulo"] > 50:
+            mensajes.append(_msg("warn", "{}: {:.0f}% valores nulos/vacios (critico)".format(
+                col, pc["pct_nulo"]
+            )))
+        elif pc["pct_nulo"] > 20:
+            mensajes.append(_msg("warn", "{}: {:.0f}% valores nulos/vacios".format(
+                col, pc["pct_nulo"]
+            )))
+        if pc["formato_inconsistente"]:
+            mensajes.append(_msg("warn", "{}: formato numerico inconsistente".format(col)))
+
+    meta["perfil_columnas"] = perfil_columnas
+
+    # Sugerir llave primaria
+    for pc in perfil_columnas:
+        if pc["nulos"] == 0 and pc["vacios"] == 0 and pc["unicos"] == pc["total"]:
+            meta["llave_sugerida"] = pc["nombre"]
+            break
+
+    # Detectar filas completamente vacias
+    filas_vacias = df.isna().all(axis=1)
+    if df.dtypes.apply(lambda dt: dt == object).any():
+        filas_vacias = filas_vacias | df.astype(str).apply(
+            lambda row: row.str.strip().eq("").all(), axis=1
+        )
+    n_filas_vacias = int(filas_vacias.sum())
+    meta["filas_vacias"] = n_filas_vacias
+    if n_filas_vacias > 0:
+        mensajes.append(_msg("warn", "{} fila(s) completamente vacia(s)".format(n_filas_vacias)))
+
+    tiene_warn = any(m["nivel"] == "warn" for m in mensajes)
+    tiene_error = any(m["nivel"] == "error" for m in mensajes)
+    estado_final = "error" if tiene_error else ("warn" if tiene_warn else "ok")
+
+    return _respuesta(estado_final, mensajes, meta)
 
 
 # ============================================
@@ -219,7 +389,7 @@ def analizar_archivo(nombre, ruta):
 def inferir_perfil(df, nombre):
     """
     Infiere el perfil de un DataFrame: columnas, tipos detectados,
-    posible llave primaria.
+    posible llave primaria, muestra de valores.
     La llave se infiere buscando la columna con valores unicos y sin nulos.
     Retorna dict con el perfil inferido para aprobacion del analista.
     """
@@ -231,39 +401,11 @@ def inferir_perfil(df, nombre):
     }
 
     for col in df.columns:
-        serie = df[col]
-        n_total = len(serie)
-        n_nulos = int(serie.isna().sum())
-        n_unicos = int(serie.nunique())
-        n_vacios = 0
-        if serie.dtype == object:
-            n_vacios = int((serie.str.strip() == "").sum())
-
-        # Intentar inferir tipo numerico
-        tipo_detectado = "texto"
-        if serie.dtype == object:
-            muestra = serie.dropna().head(100)
-            if len(muestra) > 0:
-                try:
-                    pd.to_numeric(muestra, errors="raise")
-                    tipo_detectado = "numerico"
-                except (ValueError, TypeError):
-                    pass
-        elif pd.api.types.is_numeric_dtype(serie):
-            tipo_detectado = "numerico"
-
-        info_col = {
-            "nombre": col,
-            "tipo_detectado": tipo_detectado,
-            "nulos": n_nulos,
-            "vacios": n_vacios,
-            "unicos": n_unicos,
-            "total": n_total,
-        }
+        info_col = _perfilar_columna(df[col])
         perfil["columnas"].append(info_col)
 
-        # Candidata a llave: sin nulos, sin vacios, todos unicos
-        if (n_nulos == 0 and n_vacios == 0 and n_unicos == n_total
+        if (info_col["nulos"] == 0 and info_col["vacios"] == 0
+                and info_col["unicos"] == info_col["total"]
                 and perfil["llave_sugerida"] is None):
             perfil["llave_sugerida"] = col
 
@@ -309,17 +451,43 @@ def validar_fuente(nombre, ruta, perfil=None):
                 ", ".join(sorted(cols_reales))
             )))
 
-    # Detectar columnas con muchos nulos
+    # Detectar columnas con muchos nulos (umbral 20%, critico 50%)
     for info_col in perfil_inferido["columnas"]:
-        pct_nulo = 0
-        if info_col["total"] > 0:
-            pct_nulo = (info_col["nulos"] + info_col["vacios"]) / info_col["total"]
-        if pct_nulo > 0.5:
+        pct_nulo = info_col.get("pct_nulo", 0)
+        if pct_nulo > 50:
+            if estado != "error":
+                estado = "warn"
+            mensajes.append(_msg("warn", "{}: {:.0f}% de valores vacios o nulos (critico)".format(
+                info_col["nombre"], pct_nulo
+            )))
+        elif pct_nulo > 20:
             if estado != "error":
                 estado = "warn"
             mensajes.append(_msg("warn", "{}: {:.0f}% de valores vacios o nulos".format(
-                info_col["nombre"], pct_nulo * 100
+                info_col["nombre"], pct_nulo
             )))
+
+    # Detectar formato numerico inconsistente
+    for info_col in perfil_inferido["columnas"]:
+        if info_col.get("formato_inconsistente", False):
+            if estado != "error":
+                estado = "warn"
+            mensajes.append(_msg("warn",
+                "{}: formato numerico inconsistente (posible mezcla de separadores)".format(
+                    info_col["nombre"]
+                )))
+
+    # Detectar filas completamente vacias
+    filas_vacias = df.isna().all(axis=1)
+    if df.dtypes.apply(lambda dt: dt == object).any():
+        filas_vacias = filas_vacias | df.astype(str).apply(
+            lambda row: row.str.strip().eq("").all(), axis=1
+        )
+    n_filas_vacias = int(filas_vacias.sum())
+    if n_filas_vacias > 0:
+        if estado != "error":
+            estado = "warn"
+        mensajes.append(_msg("warn", "{} fila(s) completamente vacia(s)".format(n_filas_vacias)))
 
     # Detectar duplicados en llave sugerida
     llave = perfil_inferido.get("llave_sugerida")

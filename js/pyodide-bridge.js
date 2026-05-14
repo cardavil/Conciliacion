@@ -341,6 +341,43 @@ const PyBridge = (() => {
   }
 
   /* ============================================
+     EDA: ANALISIS DE ARCHIVOS (ETAPA 1)
+     ============================================ */
+
+  async function analyzeFile(name, path) {
+    var resultJson = await callPythonSimple(
+      'resultado_a_json(analizar_archivo("' +
+      escapePyString(name) + '", "' +
+      escapePyString(path) + '"))'
+    );
+    return JSON.parse(resultJson);
+  }
+
+  async function analyzeAllFiles(filesMap) {
+    var paths = await loadFiles(filesMap);
+    var results = {};
+    var entries = Object.entries(paths);
+
+    for (var i = 0; i < entries.length; i++) {
+      var name = entries[i][0];
+      var path = entries[i][1];
+      try {
+        results[name] = await analyzeFile(name, path);
+        App.addLog('info', name + ' analizado');
+      } catch (err) {
+        App.addLog('error', 'Error analizando ' + name + ': ' + extractPythonError(err));
+        results[name] = {
+          estado: 'error',
+          mensajes: [{ nivel: 'error', texto: extractPythonError(err) }],
+          datos: { nombre: name }
+        };
+      }
+    }
+
+    return results;
+  }
+
+  /* ============================================
      API PUBLICA
      ============================================ */
 
@@ -352,6 +389,8 @@ const PyBridge = (() => {
     callPythonSimple: callPythonSimple,
     readGeneratedFile: readGeneratedFile,
     readGeneratedFiles: readGeneratedFiles,
+    analyzeFile: analyzeFile,
+    analyzeAllFiles: analyzeAllFiles,
     isReady: function () { return ready; }
   };
 })();
