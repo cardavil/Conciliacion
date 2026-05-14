@@ -29,12 +29,35 @@
       <div id="etapa-1-body" class="etapa__body" role="region"
            aria-labelledby="etapa-1">
 
-        <!-- Zona de carga de archivos (drag & drop) -->
-        <div class="zona-carga" role="button" tabindex="0"
-             aria-label="Arrastra archivos aqui o haz clic para seleccionar">
-          <p class="zona-carga__mensaje">Arrastra archivos aqui o haz clic para seleccionar</p>
-          <input type="file" class="zona-carga__input" multiple hidden
-                 aria-label="Seleccionar archivos">
+        <!-- Selector de carpetas (File System Access API) -->
+        <div class="selector-carpetas">
+          <div class="alerta alerta--warn" id="alerta-fsapi" hidden role="alert">
+            <span class="alerta__mensaje">
+              Tu navegador no soporta el selector de carpetas.
+              Usa Chrome, Edge o Brave.
+            </span>
+          </div>
+          <div class="selector-carpetas__fila">
+            <div class="selector-carpeta" id="selector-entrada">
+              <button class="boton boton--primario" type="button"
+                      id="btn-carpeta-entrada"
+                      aria-label="Seleccionar carpeta de entrada">
+                Seleccionar carpeta de entrada
+              </button>
+              <span class="selector-carpeta__ruta" id="ruta-entrada"
+                    aria-live="polite">Ninguna carpeta seleccionada</span>
+              <span class="selector-carpeta__conteo" id="conteo-entrada"></span>
+            </div>
+            <div class="selector-carpeta" id="selector-salida">
+              <button class="boton boton--ghost" type="button"
+                      id="btn-carpeta-salida"
+                      aria-label="Seleccionar carpeta de salida">
+                Seleccionar carpeta de salida
+              </button>
+              <span class="selector-carpeta__ruta" id="ruta-salida"
+                    aria-live="polite">Ninguna carpeta seleccionada</span>
+            </div>
+          </div>
         </div>
 
         <!-- Tabla de archivos detectados -->

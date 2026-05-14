@@ -633,33 +633,42 @@ body {
 }
 
 /* ============================================
-   ZONA DRAG & DROP
+   SELECTOR DE CARPETAS (File System Access API)
    ============================================ */
 
-.zona-carga {
+.selector-carpetas {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 120px;
-  padding: var(--space-xl);
-  border: 2px dashed var(--surface-border);
+  gap: var(--space-md);
+}
+
+.selector-carpetas__fila {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+
+.selector-carpeta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
   background: var(--surface-page);
-  cursor: pointer;
-  transition: border-color var(--transition), background var(--transition);
 }
 
-.zona-carga:hover,
-.zona-carga--active {
-  border-color: var(--info);
-  background: var(--info-bg);
-}
-
-.zona-carga__mensaje {
-  font-size: 0.875rem;
+.selector-carpeta__ruta {
+  font-size: 0.8125rem;
+  font-family: var(--font-mono);
   color: var(--text-muted);
-  text-align: center;
+  word-break: break-all;
+}
+
+.selector-carpeta__conteo {
+  font-size: 0.75rem;
+  color: var(--text-dim);
 }
 
 /* ============================================
@@ -1170,6 +1179,10 @@ body {
    ============================================ */
 
 @media (max-width: 640px) {
+  .selector-carpetas__fila {
+    grid-template-columns: 1fr;
+  }
+
   .topbar {
     flex-wrap: wrap;
     padding: var(--space-sm) var(--space-md);

@@ -18,7 +18,9 @@ const App = (() => {
     edaResults: {},
     auditTrail: [],
     currentStage: 1,
-    reportBlobs: []
+    reportBlobs: [],
+    inputDirHandle: null,
+    outputDirHandle: null
   };
 
   /* ============================================
@@ -63,6 +65,12 @@ const App = (() => {
 
   function dbg() {
     if (DEBUG) console.log('[App]', ...arguments);
+  }
+
+  var ALLOWED_EXTENSIONS = ['txt', 'csv', 'xlsx', 'xls'];
+
+  function supportsDirectoryPicker() {
+    return typeof window.showDirectoryPicker === 'function';
   }
 
   /* ============================================
@@ -197,78 +205,126 @@ const App = (() => {
   }
 
   /* ============================================
-     DRAG & DROP Y CARGA DE ARCHIVOS
+     SELECTOR DE CARPETAS (File System Access API)
      ============================================ */
 
-  function initDragDrop() {
-    const zona = $('.zona-carga');
-    const input = zona ? zona.querySelector('.zona-carga__input') : null;
-    if (!zona || !input) return;
+  function initDirectoryPickers() {
+    var btnInput = $('#btn-carpeta-entrada');
+    var btnOutput = $('#btn-carpeta-salida');
+    var alertEl = $('#alerta-fsapi');
 
-    zona.addEventListener('click', function () { input.click(); });
+    if (!supportsDirectoryPicker()) {
+      if (alertEl) alertEl.removeAttribute('hidden');
+      if (btnInput) btnInput.disabled = true;
+      if (btnOutput) btnOutput.disabled = true;
+      addLog('error', 'El navegador no soporta el selector de carpetas (usa Chrome, Edge o Brave)');
+      return;
+    }
 
-    zona.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        input.click();
-      }
-    });
-
-    zona.addEventListener('dragenter', function (e) {
-      e.preventDefault();
-      zona.classList.add('zona-carga--active');
-    });
-
-    zona.addEventListener('dragover', function (e) {
-      e.preventDefault();
-    });
-
-    zona.addEventListener('dragleave', function (e) {
-      if (!zona.contains(e.relatedTarget)) {
-        zona.classList.remove('zona-carga--active');
-      }
-    });
-
-    zona.addEventListener('drop', function (e) {
-      e.preventDefault();
-      zona.classList.remove('zona-carga--active');
-      if (e.dataTransfer.files.length > 0) {
-        handleFiles(e.dataTransfer.files);
-      }
-    });
-
-    input.addEventListener('change', function () {
-      if (input.files.length > 0) {
-        handleFiles(input.files);
-        input.value = '';
-      }
-    });
+    if (btnInput) {
+      btnInput.addEventListener('click', pickInputDirectory);
+    }
+    if (btnOutput) {
+      btnOutput.addEventListener('click', pickOutputDirectory);
+    }
   }
 
-  async function handleFiles(fileList) {
-    for (var i = 0; i < fileList.length; i++) {
-      var file = fileList[i];
-      try {
-        var buffer = await file.arrayBuffer();
-        var ext = classifyExtension(file.name);
-        state.files.set(file.name, {
-          file: file,
-          buffer: buffer,
-          type: ext,
-          size: file.size,
-          category: 'por clasificar'
-        });
-        addLog('info', file.name + ' cargado (' + formatSize(file.size) + ')');
-      } catch (err) {
-        addLog('error', 'Error al leer ' + file.name);
-        dbg('Error reading file:', err);
+  async function pickInputDirectory() {
+    var dirHandle;
+    try {
+      dirHandle = await window.showDirectoryPicker({
+        id: 'conciliacion-entrada',
+        mode: 'read',
+        startIn: 'documents'
+      });
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      addLog('error', 'Error al seleccionar carpeta: ' + (err.message || err));
+      return;
+    }
+
+    state.inputDirHandle = dirHandle;
+    var rutaEl = $('#ruta-entrada');
+    if (rutaEl) rutaEl.textContent = dirHandle.name;
+    addLog('info', 'Carpeta de entrada: ' + dirHandle.name);
+
+    await readInputDirectory(dirHandle);
+  }
+
+  async function readInputDirectory(dirHandle) {
+    state.files.clear();
+    var fileCount = 0;
+    var skippedCount = 0;
+
+    try {
+      for await (var entry of dirHandle.values()) {
+        if (entry.kind !== 'file') continue;
+
+        var ext = classifyExtension(entry.name);
+        if (ALLOWED_EXTENSIONS.indexOf(ext) === -1) {
+          skippedCount++;
+          continue;
+        }
+
+        try {
+          var file = await entry.getFile();
+          var buffer = await file.arrayBuffer();
+          state.files.set(file.name, {
+            file: file,
+            buffer: buffer,
+            type: ext,
+            size: file.size,
+            category: 'por clasificar'
+          });
+          fileCount++;
+          addLog('info', file.name + ' cargado (' + formatSize(file.size) + ')');
+        } catch (readErr) {
+          addLog('error', 'Error al leer ' + entry.name + ': ' + (readErr.message || readErr));
+        }
       }
+    } catch (iterErr) {
+      addLog('error', 'Error al recorrer la carpeta: ' + (iterErr.message || iterErr));
+      return;
+    }
+
+    var conteoEl = $('#conteo-entrada');
+    if (conteoEl) {
+      conteoEl.textContent = fileCount + ' archivo(s)';
+      if (skippedCount > 0) {
+        conteoEl.textContent += ' (' + skippedCount + ' omitido(s))';
+      }
+    }
+
+    if (fileCount === 0) {
+      addLog('warn', 'No se encontraron archivos .txt, .csv o .xlsx en la carpeta');
+      return;
     }
 
     renderFileList(state.files);
     document.dispatchEvent(new CustomEvent('app:files-loaded', {
       detail: { count: state.files.size }
     }));
+  }
+
+  async function pickOutputDirectory() {
+    var dirHandle;
+    try {
+      dirHandle = await window.showDirectoryPicker({
+        id: 'conciliacion-salida',
+        mode: 'readwrite',
+        startIn: 'documents'
+      });
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      addLog('error', 'Error al seleccionar carpeta de salida: ' + (err.message || err));
+      return;
+    }
+
+    state.outputDirHandle = dirHandle;
+    var rutaEl = $('#ruta-salida');
+    if (rutaEl) rutaEl.textContent = dirHandle.name;
+    addLog('ok', 'Carpeta de salida: ' + dirHandle.name);
+    renderOutputs();
   }
 
   /* ============================================
@@ -936,9 +992,9 @@ const App = (() => {
       (function (blob, fname) {
         var btn = document.createElement('button');
         btn.className = 'boton boton--ghost';
-        btn.textContent = 'Descargar';
-        btn.setAttribute('aria-label', 'Descargar ' + fname);
-        btn.addEventListener('click', function () { downloadBlob(blob, fname); });
+        btn.textContent = state.outputDirHandle ? 'Guardar' : 'Descargar';
+        btn.setAttribute('aria-label', 'Guardar ' + fname);
+        btn.addEventListener('click', function () { writeFileToOutput(blob, fname); });
         li.appendChild(nombre);
         li.appendChild(btn);
       })(report.blob, report.name);
@@ -946,9 +1002,13 @@ const App = (() => {
       lista.appendChild(li);
     }
 
-    // Habilitar boton de descargar todo
     var btnAll = $('#etapa-5 .boton--primario');
-    if (btnAll) btnAll.disabled = (state.reportBlobs.length === 0);
+    if (btnAll) {
+      btnAll.disabled = (state.reportBlobs.length === 0);
+      btnAll.textContent = state.outputDirHandle
+        ? 'Guardar todo en ' + state.outputDirHandle.name
+        : 'Descargar todo (.zip)';
+    }
 
     addLog('ok', state.reportBlobs.length + ' reporte(s) generado(s)');
   }
@@ -1117,6 +1177,56 @@ const App = (() => {
     }
   }
 
+  async function writeFileToOutput(blob, filename) {
+    if (!state.outputDirHandle) {
+      downloadBlob(blob, filename);
+      return;
+    }
+
+    try {
+      var permission = await state.outputDirHandle.queryPermission({ mode: 'readwrite' });
+      if (permission !== 'granted') {
+        permission = await state.outputDirHandle.requestPermission({ mode: 'readwrite' });
+        if (permission !== 'granted') {
+          addLog('warn', 'Permiso denegado, descargando ' + filename);
+          downloadBlob(blob, filename);
+          return;
+        }
+      }
+
+      var fileHandle = await state.outputDirHandle.getFileHandle(filename, { create: true });
+      var writable = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      addLog('ok', filename + ' guardado en ' + state.outputDirHandle.name);
+    } catch (err) {
+      addLog('error', 'Error al guardar ' + filename + ': ' + (err.message || err));
+      downloadBlob(blob, filename);
+    }
+  }
+
+  async function writeAllToOutput() {
+    var reports = state.reportBlobs;
+    if (!reports || reports.length === 0) return;
+
+    if (state.outputDirHandle) {
+      var successCount = 0;
+      for (var i = 0; i < reports.length; i++) {
+        try {
+          await writeFileToOutput(reports[i].blob, reports[i].name);
+          successCount++;
+        } catch (err) {
+          addLog('error', 'Error escribiendo ' + reports[i].name);
+        }
+      }
+      if (successCount === reports.length) {
+        addLog('ok', reports.length + ' reporte(s) guardados en ' + state.outputDirHandle.name);
+      }
+    } else {
+      await downloadAll();
+    }
+  }
+
   /* ============================================
      EVENTOS: NAVEGACION DE ETAPAS
      ============================================ */
@@ -1160,7 +1270,7 @@ const App = (() => {
 
       // Etapa 5: descargar todo
       if (stageNum === 5) {
-        downloadAll();
+        writeAllToOutput();
         return;
       }
 
@@ -1191,7 +1301,11 @@ const App = (() => {
       var section = btn.closest('#etapa-1');
       if (!section) return;
       if (btn.textContent.trim() === 'Actualizar') {
-        renderFileList(state.files);
+        if (state.inputDirHandle) {
+          readInputDirectory(state.inputDirHandle);
+        } else {
+          renderFileList(state.files);
+        }
       }
     });
   }
@@ -1249,7 +1363,7 @@ const App = (() => {
     }
 
     initStageNavigation();
-    initDragDrop();
+    initDirectoryPickers();
     initAdvanceButtons();
     initRefreshButton();
     initEDA();
@@ -1277,7 +1391,8 @@ const App = (() => {
     getFiles: function () { return state.files; },
     getEdaResults: function () { return state.edaResults; },
     getAuditTrail: function () { return state.auditTrail; },
-    downloadAll: downloadAll
+    downloadAll: writeAllToOutput,
+    getOutputDirHandle: function () { return state.outputDirHandle; }
   };
 })();
 
