@@ -302,7 +302,7 @@ const App = (() => {
 
     renderFileList(state.files);
 
-    var btnStage1 = $('#etapa-1 .boton--primario');
+    var btnStage1 = $('#etapa-1 .etapa__acciones .boton--primario');
     if (btnStage1) btnStage1.disabled = false;
 
     document.dispatchEvent(new CustomEvent('app:files-loaded', {
