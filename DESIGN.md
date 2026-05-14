@@ -170,42 +170,39 @@ ERROR    →  rojo, tiene errores que bloquean avance
 │ Etapa 2 · Validación por Fuente     [⚠ 2]     │
 ├────────────────────────────────────────────────┤
 │                                                │
-│  ⚠ 1 fuente con errores — resolver antes de   │
-│    continuar al cruce                          │
+│  ANÁLISIS DE CALIDAD POR ARCHIVO               │
+│  ┌────────────────────────────────────────────┐│
+│  │● archivo1.txt  1842 filas · 8 cols  [OK]  ││
+│  │  (click para expandir perfil de columnas)  ││
+│  └────────────────────────────────────────────┘│
+│  ┌────────────────────────────────────────────┐│
+│  │⚠ archivo2.xlsx  671 filas · 5 cols [2 ⚠]  ││
+│  └────────────────────────────────────────────┘│
 │                                                │
-│  FUENTES DE DATOS                              │
+│  CONFIGURACIÓN DE CRUCE                        │
 │  ┌──────────────────────────────────────────┐  │
-│  │● archivo1.txt  1,842 reg · llave: X  [OK]│  │
-│  └──────────────────────────────────────────┘  │
-│  ┌──────────────────────────────────────────┐  │
-│  │⚠ archivo2.xlsx  671 reg        [3 alertas]│  │
-│  │  ⚠ N valores vacíos en columna X         │  │
-│  │  ⚠ N registros con formato inconsistente │  │
-│  │           [📋 Ver registros] [📂 Reemplazar]│  │
-│  └──────────────────────────────────────────┘  │
-│  ┌──────────────────────────────────────────┐  │
-│  │✗ archivo3.csv                    [Error]  │  │
-│  │  ✗ Columna esperada X no encontrada      │  │
-│  │  Columnas encontradas: a, b, c           │  │
-│  │      [⚙ Mapear columnas] [📂 Reemplazar]  │  │
+│  │ archivo1.txt  [Cuenta de cobro ▼] [cedula▼]│
+│  │ archivo2.xlsx [Descuentos ▼]      [cc ▼]   │
+│  │ archivo3.xlsx [No usar ▼]         [— ▼]    │
 │  └──────────────────────────────────────────┘  │
 │                                                │
-│  CATÁLOGOS DE REFERENCIA                       │
-│  (misma estructura de tarjetas)                │
+│  COLUMNAS DE CONCEPTO                          │
+│  [✓ APORTES] [✓ CREDITO] [ ] SEGUROS          │
 │                                                │
+│  ✓ Configuración lista                         │
 │              [▶ Continuar a Etapa 3]           │
-│              (deshabilitado si hay errores)     │
 └────────────────────────────────────────────────┘
 ```
 
 ### Elementos
-- Alerta superior si hay errores bloqueantes
-- Tarjetas por fuente con borde lateral de color (verde/amarillo/rojo)
-- Cada tarjeta muestra: nombre, N registros, llave inferida, badge de estado
-- Las tarjetas con problemas se expanden mostrando detalle
-- Separación entre Fuentes de datos y Catálogos de referencia
-- Acciones por fuente: ver registros, reemplazar archivo, mapear columnas
-- Botón de avance (deshabilitado si hay errores)
+- Tarjetas EDA expandibles por archivo con perfil de columnas
+- Sección de configuración de cruce (aparece tras EDA):
+  - Fila por archivo: nombre + dropdown de rol + dropdown de llave
+  - Roles: No usar / Cuenta de cobro / Descuentos / Período anterior
+  - Llave: columnas del archivo (default = llave sugerida del EDA)
+- Checkboxes de columnas de concepto (numéricas compartidas entre CC y Desc)
+- Mensaje de validación (ok/error)
+- Botón de avance habilitado solo con configuración válida
 
 ---
 

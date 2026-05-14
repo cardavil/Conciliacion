@@ -891,6 +891,114 @@ body {
 }
 
 /* ============================================
+   CONFIG CRUCE (asignacion de roles y llaves)
+   ============================================ */
+
+.config-cruce {
+  margin-bottom: var(--space-md);
+}
+
+.config-cruce__titulo {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-sm);
+}
+
+.config-cruce__subtitulo {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-xs);
+}
+
+.config-cruce__archivos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+}
+
+.config-cruce__archivo-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--space-sm);
+  align-items: center;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--surface-page);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+}
+
+.config-cruce__archivo-nombre {
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.config-cruce__select {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8125rem;
+  font-family: var(--font-mono);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.config-cruce__conceptos {
+  margin-bottom: var(--space-md);
+}
+
+.config-cruce__conceptos-lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.config-cruce__checkbox-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--surface-page);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  font-family: var(--font-mono);
+  cursor: pointer;
+}
+
+.config-cruce__checkbox-item:hover {
+  border-color: var(--info);
+}
+
+.config-cruce__validacion {
+  font-size: 0.8125rem;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+}
+
+.config-cruce__validacion--ok {
+  color: var(--ok);
+  background: var(--ok-bg);
+}
+
+.config-cruce__validacion--error {
+  color: var(--error);
+  background: var(--error-bg);
+}
+
+/* ============================================
    TARJETA EDA (analisis por archivo)
    ============================================ */
 

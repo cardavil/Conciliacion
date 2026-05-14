@@ -41,11 +41,11 @@ Conciliacion/
 
 ## Flujo de 5 etapas
 
-1. **Revision de Entorno** — Carga de archivos, EDA automatico (perfil de columnas, tipos, nulos, llave sugerida), vista previa de salidas esperadas
-2. **Validacion por Fuente** — Validacion individual de estructura, tipos y calidad por archivo
-3. **Validacion Cruzada** — Verificacion de consistencia entre fuentes (match, cobertura, duplicados)
-4. **Conciliacion + Excepciones** — Cruce cuenta de cobro vs descuentos, cola de excepciones con acciones del analista
-5. **Reportes** — Generacion de conciliacion consolidada, extractos por empresa, excepciones y log de auditoria (.xlsx)
+1. **Revision de Entorno** — Carga de archivos, configuracion de separadores decimales/miles
+2. **Validacion por Fuente** — EDA automatico (perfil de columnas, tipos, nulos, llave sugerida) + configuracion de cruce (roles de archivo, llave, columnas de concepto)
+3. **Validacion Cruzada** — Cruce de llaves entre fuentes (match, sin match, duplicados, cobertura)
+4. **Conciliacion + Excepciones** — Cruce de montos cuenta de cobro vs descuentos, cola de excepciones con acciones del analista (Aprobar/Corregir/Excluir)
+5. **Reportes** — Generacion de resumen ejecutivo, excepciones, conciliacion completa, novedades y log de auditoria (.xlsx)
 
 ## Uso
 

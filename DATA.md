@@ -112,12 +112,35 @@ Tipos detectados:
 
 ---
 
-## 5. SALIDAS GENERADAS
+## 5. CONFIGURACIÓN DE CRUCE (post-EDA)
 
 ```
-Conciliación consolidada  (.xlsx)  — Resultado del cruce cuenta de cobro vs descuentos
-Extractos por empresa     (.xlsx)  — Detalle de diferencias por empresa vinculante
-Reporte de excepciones    (.xlsx)  — Excepciones que requirieron acción del analista
+Antes del cruce, el analista configura en Etapa 2:
+
+Por archivo:
+  - Rol: Cuenta de cobro / Descuentos / Período anterior / No usar
+  - Columna llave (default = llave sugerida del EDA)
+
+Columnas de concepto:
+  - Columnas numéricas compartidas entre CC y Desc
+  - El analista selecciona cuáles comparar (checkboxes)
+
+Validación requerida:
+  - Exactamente 1 archivo como Cuenta de cobro
+  - Exactamente 1 archivo como Descuentos
+  - Llave seleccionada en archivos activos
+  - Al menos 1 columna de concepto seleccionada
+```
+
+---
+
+## 6. SALIDAS GENERADAS
+
+```
+Resumen ejecutivo         (.xlsx)  — Conteos OK/Excedente/Faltante/Sin Match/Error
+Excepciones detalle       (.xlsx)  — Excepciones que requirieron acción del analista
+Conciliación completa     (.xlsx)  — Cada comparación llave×concepto con estado
+Novedades                 (.xlsx)  — Asociados nuevos/retirados vs período anterior
 Log de auditoría          (.xlsx)  — Registro de todas las acciones y decisiones
 ```
 

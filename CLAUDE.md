@@ -75,24 +75,39 @@ God-file     : Un solo HTML que funciona offline (se genera al final)
 
 ```
 ETAPA 1 — Revisión de Entorno
-  Verificar carpeta de entrada (conectada, archivos detectados)
-  Verificar carpeta de salida (conectada)
+  Seleccionar carpeta de entrada (File System Access API)
+  Seleccionar carpeta de salida
+  Tabla de archivos detectados (nombre, tipo, categoría, tamaño)
+  Configurar separador decimal y de miles (dropdowns, default del navegador)
+  Botón "Continuar a Etapa 2" habilitado si hay archivos
 
 ETAPA 2 — Validación por Fuente
-  EDA automático: perfil por columna (tipo, vacíos, válidos, inválidos, muestra)
-  Validar cada archivo individualmente (estructura, tipos, llaves)
+  EDA automático al entrar (disparado por avance de Etapa 1)
+  Perfil por columna: tipo, vacíos, válidos, inválidos, únicos, muestra
+  Detalle de inválidos expandible: click en conteo → mini-tabla Fila/Valor (cap 50)
+  Validación numérica locale-aware según separador configurado en Etapa 1
   Umbrales: >20% nulos = warn, >50% = crítico
+  Configuración de cruce: rol por archivo (CC/Desc/Anterior), llave, conceptos
+  Botón "Continuar a Etapa 3" habilitado solo con config válida
 
 ETAPA 3 — Validación Cruzada
-  Verificar consistencia entre fuentes (match, sin match, duplicados, cobertura)
+  Ejecutada automáticamente al avanzar desde Etapa 2
+  Métricas: match, sin match, duplicados, cobertura (%)
+  Tabla de registros sin match con acciones (Aprobar/Corregir/Excluir)
+  Cada acción requiere comentario obligatorio (audit trail)
 
 ETAPA 4 — Conciliación + Excepciones
-  Cruzar descuentos vs cuenta de cobro, detectar diferencias
-  Acciones del analista: Aprobar / Corregir / Excluir (comentario obligatorio)
+  Ejecutada automáticamente al avanzar desde Etapa 3
+  Cruce por llave y conceptos: OK / EXCEDENTE / FALTANTE / SIN_MATCH
+  Cola de excepciones con acciones del analista (comentario obligatorio)
+  Novedades vs período anterior (nuevos, retirados)
+  Botón "Generar Reportes" habilitado al resolver todas las excepciones
 
 ETAPA 5 — Reportes
-  Generar outputs descargables (.xlsx) + audit trail
-  Salidas: conciliación consolidada, extractos, excepciones, log de auditoría
+  Generación automática al avanzar desde Etapa 4
+  Salidas: resumen ejecutivo, excepciones, conciliación completa, novedades, audit log
+  Descarga individual o todo como .zip
+  Si hay carpeta de salida: escribe directo al disco
 ```
 
 ---

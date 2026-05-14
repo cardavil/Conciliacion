@@ -20,7 +20,9 @@ const App = (() => {
     currentStage: 1,
     reportBlobs: [],
     inputDirHandle: null,
-    outputDirHandle: null
+    outputDirHandle: null,
+    crossConfig: null,
+    conciliationResult: null
   };
 
   /* ============================================
@@ -646,17 +648,20 @@ const App = (() => {
       setStageWarnCount(2, totalWarnings);
     }
 
-    // Habilitar boton Siguiente etapa 2: solo errores bloquean
-    var btnStage2 = $('#etapa-2 .boton--primario');
-    if (btnStage2) {
-      var hasErrors = false;
-      for (var fn = 0; fn < fileNames.length; fn++) {
-        if (edaResults[fileNames[fn]] && edaResults[fileNames[fn]].estado === 'error') {
-          hasErrors = true;
-          break;
-        }
+    var hasErrors = false;
+    for (var fn = 0; fn < fileNames.length; fn++) {
+      if (edaResults[fileNames[fn]] && edaResults[fileNames[fn]].estado === 'error') {
+        hasErrors = true;
+        break;
       }
-      btnStage2.disabled = hasErrors;
+    }
+
+    if (hasErrors) {
+      var btnStage2 = $('#etapa-2 .boton--primario');
+      if (btnStage2) btnStage2.disabled = true;
+      addLog('error', 'Hay archivos con errores — corregir antes de continuar');
+    } else {
+      renderCrossConfig(edaResults);
     }
 
     addLog('ok', fileNames.length + ' archivo(s) analizado(s)');
@@ -684,6 +689,218 @@ const App = (() => {
     return wrapper;
   }
 
+
+  /* ============================================
+     CONFIG DE CRUCE (Etapa 2)
+     ============================================ */
+
+  function renderCrossConfig(edaResults) {
+    var container = $('#config-cruce');
+    var archivosEl = $('#config-cruce-archivos');
+    if (!container || !archivosEl) return;
+
+    archivosEl.innerHTML = '';
+    var fileNames = Object.keys(edaResults);
+
+    for (var i = 0; i < fileNames.length; i++) {
+      var name = fileNames[i];
+      var result = edaResults[name];
+      var datos = result.datos || {};
+      var columnas = datos.nombres_columnas || [];
+      var llaveSugerida = datos.llave_sugerida || '';
+
+      var row = document.createElement('div');
+      row.className = 'config-cruce__archivo-row';
+
+      var span = document.createElement('span');
+      span.className = 'config-cruce__archivo-nombre';
+      span.textContent = name;
+
+      var rolSelect = document.createElement('select');
+      rolSelect.className = 'config-cruce__select';
+      rolSelect.dataset.filename = name;
+      rolSelect.dataset.configType = 'rol';
+      var roles = [
+        { value: '', label: 'No usar en cruce' },
+        { value: 'cuenta_cobro', label: 'Cuenta de cobro' },
+        { value: 'descuentos', label: 'Descuentos' },
+        { value: 'anterior', label: 'Periodo anterior' }
+      ];
+      for (var r = 0; r < roles.length; r++) {
+        var opt = document.createElement('option');
+        opt.value = roles[r].value;
+        opt.textContent = roles[r].label;
+        rolSelect.appendChild(opt);
+      }
+
+      var llaveSelect = document.createElement('select');
+      llaveSelect.className = 'config-cruce__select';
+      llaveSelect.dataset.filename = name;
+      llaveSelect.dataset.configType = 'llave';
+      var optEmpty = document.createElement('option');
+      optEmpty.value = '';
+      optEmpty.textContent = '— Llave —';
+      llaveSelect.appendChild(optEmpty);
+      for (var c = 0; c < columnas.length; c++) {
+        var optCol = document.createElement('option');
+        optCol.value = columnas[c];
+        optCol.textContent = columnas[c];
+        if (columnas[c] === llaveSugerida) optCol.selected = true;
+        llaveSelect.appendChild(optCol);
+      }
+
+      row.appendChild(span);
+      row.appendChild(rolSelect);
+      row.appendChild(llaveSelect);
+      archivosEl.appendChild(row);
+
+      rolSelect.addEventListener('change', function () {
+        updateConceptColumns();
+        validateCrossConfig();
+      });
+      llaveSelect.addEventListener('change', function () {
+        validateCrossConfig();
+      });
+    }
+
+    container.removeAttribute('hidden');
+  }
+
+  function updateConceptColumns() {
+    var conceptosSection = $('#config-cruce-conceptos');
+    var listaEl = $('#config-conceptos-lista');
+    if (!conceptosSection || !listaEl) return;
+
+    var rolSelects = document.querySelectorAll('[data-config-type="rol"]');
+    var ccName = null;
+    var descName = null;
+    for (var i = 0; i < rolSelects.length; i++) {
+      if (rolSelects[i].value === 'cuenta_cobro') ccName = rolSelects[i].dataset.filename;
+      if (rolSelects[i].value === 'descuentos') descName = rolSelects[i].dataset.filename;
+    }
+
+    if (!ccName || !descName) {
+      conceptosSection.setAttribute('hidden', '');
+      return;
+    }
+
+    var ccResult = state.edaResults[ccName];
+    var descResult = state.edaResults[descName];
+    if (!ccResult || !descResult) return;
+
+    var ccPerfil = (ccResult.datos || {}).perfil_columnas || [];
+    var descPerfil = (descResult.datos || {}).perfil_columnas || [];
+
+    var ccNumericas = {};
+    for (var c = 0; c < ccPerfil.length; c++) {
+      if (ccPerfil[c].tipo_detectado === 'numerico') {
+        ccNumericas[ccPerfil[c].nombre] = true;
+      }
+    }
+
+    var compartidas = [];
+    for (var d = 0; d < descPerfil.length; d++) {
+      if (descPerfil[d].tipo_detectado === 'numerico' && ccNumericas[descPerfil[d].nombre]) {
+        compartidas.push(descPerfil[d].nombre);
+      }
+    }
+
+    listaEl.innerHTML = '';
+    if (compartidas.length === 0) {
+      var aviso = document.createElement('span');
+      aviso.style.color = 'var(--text-muted)';
+      aviso.style.fontSize = '0.8125rem';
+      aviso.textContent = 'No hay columnas numericas compartidas entre ambos archivos';
+      listaEl.appendChild(aviso);
+      conceptosSection.removeAttribute('hidden');
+      return;
+    }
+
+    for (var s = 0; s < compartidas.length; s++) {
+      var label = document.createElement('label');
+      label.className = 'config-cruce__checkbox-item';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = compartidas[s];
+      cb.dataset.configType = 'concepto';
+      cb.addEventListener('change', function () { validateCrossConfig(); });
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(compartidas[s]));
+      listaEl.appendChild(label);
+    }
+
+    conceptosSection.removeAttribute('hidden');
+  }
+
+  function validateCrossConfig() {
+    var validacionEl = $('#config-cruce-validacion');
+    var btnStage2 = $('#etapa-2 .boton--primario');
+    state.crossConfig = null;
+
+    var rolSelects = document.querySelectorAll('[data-config-type="rol"]');
+    var ccCount = 0;
+    var descCount = 0;
+    var ccName = null;
+    var descName = null;
+    var anteriorName = null;
+
+    for (var i = 0; i < rolSelects.length; i++) {
+      if (rolSelects[i].value === 'cuenta_cobro') { ccCount++; ccName = rolSelects[i].dataset.filename; }
+      if (rolSelects[i].value === 'descuentos') { descCount++; descName = rolSelects[i].dataset.filename; }
+      if (rolSelects[i].value === 'anterior') { anteriorName = rolSelects[i].dataset.filename; }
+    }
+
+    var errors = [];
+    if (ccCount === 0) errors.push('Asigna un archivo como Cuenta de cobro');
+    if (ccCount > 1) errors.push('Solo un archivo puede ser Cuenta de cobro');
+    if (descCount === 0) errors.push('Asigna un archivo como Descuentos');
+    if (descCount > 1) errors.push('Solo un archivo puede ser Descuentos');
+
+    var ccLlave = '';
+    var descLlave = '';
+    var anteriorLlave = '';
+    var llaveSelects = document.querySelectorAll('[data-config-type="llave"]');
+    for (var j = 0; j < llaveSelects.length; j++) {
+      if (llaveSelects[j].dataset.filename === ccName) ccLlave = llaveSelects[j].value;
+      if (llaveSelects[j].dataset.filename === descName) descLlave = llaveSelects[j].value;
+      if (llaveSelects[j].dataset.filename === anteriorName) anteriorLlave = llaveSelects[j].value;
+    }
+
+    if (ccName && !ccLlave) errors.push('Selecciona llave para Cuenta de cobro');
+    if (descName && !descLlave) errors.push('Selecciona llave para Descuentos');
+    if (anteriorName && !anteriorLlave) errors.push('Selecciona llave para Periodo anterior');
+
+    var conceptos = [];
+    var cbList = document.querySelectorAll('[data-config-type="concepto"]:checked');
+    for (var k = 0; k < cbList.length; k++) {
+      conceptos.push(cbList[k].value);
+    }
+    if (ccCount === 1 && descCount === 1 && conceptos.length === 0) {
+      errors.push('Selecciona al menos una columna de concepto');
+    }
+
+    if (validacionEl) {
+      if (errors.length > 0) {
+        validacionEl.className = 'config-cruce__validacion config-cruce__validacion--error';
+        validacionEl.textContent = errors[0];
+      } else {
+        validacionEl.className = 'config-cruce__validacion config-cruce__validacion--ok';
+        validacionEl.textContent = 'Configuracion lista';
+      }
+    }
+
+    if (errors.length === 0) {
+      state.crossConfig = {
+        cc: { name: ccName, llave: ccLlave },
+        desc: { name: descName, llave: descLlave },
+        anterior: anteriorName ? { name: anteriorName, llave: anteriorLlave } : null,
+        conceptos: conceptos
+      };
+      if (btnStage2) btnStage2.disabled = false;
+    } else {
+      if (btnStage2) btnStage2.disabled = true;
+    }
+  }
 
   /* ============================================
      RENDERIZADO: ETAPA 3 — CRUCE
@@ -1127,16 +1344,38 @@ const App = (() => {
         return;
       }
 
-      // Emitir evento para que el bridge procese antes de avanzar
-      var event = new CustomEvent('app:stage-advance', {
-        detail: { stage: stageNum },
-        cancelable: true
-      });
-      var dispatched = document.dispatchEvent(event);
+      if (stageNum === 2) {
+        if (!state.crossConfig) {
+          addLog('error', 'Completa la configuracion de cruce antes de continuar');
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = 'Procesando...';
+        completeStage(2, 'ok');
+        runCrossValidation().finally(function () {
+          btn.textContent = 'Continuar a Etapa 3';
+        });
+        return;
+      }
 
-      // Si el bridge no cancelo el evento, avanzar directamente
-      if (dispatched) {
-        completeStage(stageNum, 'ok');
+      if (stageNum === 3) {
+        btn.disabled = true;
+        btn.textContent = 'Procesando...';
+        completeStage(3, 'ok');
+        runConciliation().finally(function () {
+          btn.textContent = 'Continuar a Etapa 4';
+        });
+        return;
+      }
+
+      if (stageNum === 4) {
+        btn.disabled = true;
+        btn.textContent = 'Procesando...';
+        completeStage(4, 'ok');
+        runReports().finally(function () {
+          btn.textContent = 'Generar Reportes';
+        });
+        return;
       }
     });
   }
@@ -1197,6 +1436,95 @@ const App = (() => {
       renderFileList(filesMap);
     } catch (err) {
       addLog('error', 'Error en analisis EDA: ' + (err.message || err));
+    }
+  }
+
+  /* ============================================
+     ETAPA 3: VALIDACION CRUZADA
+     ============================================ */
+
+  async function runCrossValidation() {
+    var config = state.crossConfig;
+    if (!config) {
+      addLog('error', 'Configuracion de cruce no definida');
+      return;
+    }
+
+    addLog('info', 'Ejecutando validacion cruzada...');
+
+    try {
+      var result = await PyBridge.crossValidate(config);
+      var datos = result.datos || {};
+      var transformed = {
+        match: datos.match || 0,
+        sinMatch: datos.sin_match || 0,
+        duplicados: datos.duplicados || 0,
+        cobertura: datos.cobertura || 0,
+        detalles: (datos.detalles || []).map(function (d) {
+          return {
+            llave: d.llave,
+            presenteEn: d.presente_en,
+            monto: d.monto || ''
+          };
+        })
+      };
+      renderCrossCheck(transformed);
+    } catch (err) {
+      addLog('error', 'Error en validacion cruzada: ' + (err.message || err));
+    }
+  }
+
+  /* ============================================
+     ETAPA 4: CONCILIACION
+     ============================================ */
+
+  async function runConciliation() {
+    var config = state.crossConfig;
+    if (!config) {
+      addLog('error', 'Configuracion de cruce no definida');
+      return;
+    }
+
+    addLog('info', 'Ejecutando conciliacion...');
+
+    try {
+      var result = await PyBridge.conciliate(config);
+      state.conciliationResult = result;
+      var datos = result.datos || {};
+      var transformed = {
+        ok: datos.ok || 0,
+        excedente: datos.excedente || 0,
+        faltante: datos.faltante || 0,
+        error: datos.error || 0,
+        excepciones: datos.excepciones || [],
+        novedades: datos.novedades || []
+      };
+      renderConciliation(transformed);
+    } catch (err) {
+      addLog('error', 'Error en conciliacion: ' + (err.message || err));
+    }
+  }
+
+  /* ============================================
+     ETAPA 5: REPORTES
+     ============================================ */
+
+  async function runReports() {
+    if (!state.conciliationResult) {
+      addLog('error', 'No hay resultado de conciliacion para generar reportes');
+      return;
+    }
+
+    addLog('info', 'Generando reportes...');
+
+    try {
+      var reports = await PyBridge.generateReports(
+        state.conciliationResult,
+        state.auditTrail
+      );
+      renderReports(reports);
+    } catch (err) {
+      addLog('error', 'Error generando reportes: ' + (err.message || err));
     }
   }
 

@@ -64,8 +64,8 @@ Conciliacion/
 ├── css/
 │   └── styles.css         ← sistema de diseño (~1100 líneas, custom properties)
 ├── js/
-│   ├── app.js             ← orquestador UI (~1300 líneas, IIFE → App)
-│   └── pyodide-bridge.js  ← comunicación JS ↔ Pyodide (~400 líneas, IIFE → PyBridge)
+│   ├── app.js             ← orquestador UI (~1600 líneas, IIFE → App)
+│   └── pyodide-bridge.js  ← comunicación JS ↔ Pyodide (~470 líneas, IIFE → PyBridge)
 ├── python/
 │   └── conciliacion.py    ← lógica de procesamiento (~770 líneas, pandas)
 ├── CLAUDE.md              ← contexto de negocio y reglas
@@ -115,12 +115,12 @@ Etapa 5        : generar_reportes (Excel vía openpyxl)
 ### JS — App (app.js)
 ```
 Patrón         : IIFE → const App, API pública
-Etapa 1        : drag & drop, renderFileList, renderEDA, renderOutputs (salidas esperadas)
-Etapa 2        : renderValidation, buildSourceCards
-Etapa 3        : renderCrossCheck (métricas + tabla sin match)
-Etapa 4        : renderConciliation (excepciones con acciones + audit trail)
-Etapa 5        : renderReports, downloadBlob, downloadAll (JSZip dinámico)
-Excepciones    : Aprobar/Corregir/Excluir con comentario obligatorio
+Etapa 1        : drag & drop, renderFileList, renderEDA
+Config cruce   : renderCrossConfig, updateConceptColumns, validateCrossConfig
+Etapa 3        : runCrossValidation → renderCrossCheck (métricas + tabla sin match)
+Etapa 4        : runConciliation → renderConciliation (excepciones + novedades)
+Etapa 5        : runReports → renderReports, downloadBlob, writeAllToOutput (JSZip)
+Excepciones    : renderActionButtons, showActionForm, checkAllExceptionsResolved
 ```
 
 ### JS — Bridge (pyodide-bridge.js)
@@ -130,6 +130,9 @@ Carga          : init() → Pyodide + micropip + conciliacion.py
 Transferencia  : loadFile, loadFiles (ArrayBuffer → Pyodide FS)
 Ejecución      : callPython, callPythonSimple (con timeout 300s)
 EDA            : analyzeFile, analyzeAllFiles
+Etapa 3        : crossValidate (→ validar_cruzado)
+Etapa 4        : conciliate (→ conciliar)
+Etapa 5        : generateReports (→ generar_reportes + escritura /output/)
 Lectura        : readGeneratedFile, readGeneratedFiles (Pyodide FS → Blob)
 ```
 
