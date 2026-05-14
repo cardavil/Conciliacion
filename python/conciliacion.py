@@ -165,6 +165,7 @@ def _detectar_tipo_columna(serie):
     """
     Detecta el tipo de una columna: 'numerico', 'fecha' o 'texto'.
     Analiza una muestra de hasta 100 valores no vacios.
+    Usa umbral > 50% para tolerar valores invalidos mezclados.
     """
     es_texto = _es_tipo_texto(serie.dtype)
     muestra = serie[serie.astype(str).str.strip() != ""].head(100)
@@ -176,11 +177,10 @@ def _detectar_tipo_columna(serie):
         return "texto"
 
     if es_texto:
-        try:
-            pd.to_numeric(muestra, errors="raise")
+        resultado_num = pd.to_numeric(muestra, errors="coerce")
+        tasa_num = resultado_num.notna().sum() / len(muestra)
+        if tasa_num > 0.5:
             return "numerico"
-        except (ValueError, TypeError):
-            pass
 
         patron = muestra.astype(str).str.match(PATRON_NUMERICO_REGIONAL)
         if patron.sum() > len(muestra) * 0.5:
@@ -191,15 +191,16 @@ def _detectar_tipo_columna(serie):
     if es_texto:
         for fmt in FORMATOS_FECHA:
             try:
-                pd.to_datetime(muestra, format=fmt, errors="raise")
-                return "fecha"
-            except (ValueError, TypeError):
+                parsed = pd.to_datetime(muestra, format=fmt, errors="coerce")
+                if parsed.notna().sum() / len(muestra) > 0.5:
+                    return "fecha"
+            except Exception:
                 continue
 
         try:
             resultado = pd.to_datetime(muestra, errors="coerce", dayfirst=True)
             tasa_exito = resultado.notna().sum() / len(muestra)
-            if tasa_exito > 0.8:
+            if tasa_exito > 0.5:
                 return "fecha"
         except Exception:
             pass
