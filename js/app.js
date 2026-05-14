@@ -1,1 +1,934 @@
 /* app.js — Orquestador de la UI segun STACK.md */
+
+const App = (() => {
+  'use strict';
+
+  /* ============================================
+     CONFIGURACION
+     ============================================ */
+
+  const DEBUG = false;
+
+  /* ============================================
+     ESTADO INTERNO
+     ============================================ */
+
+  const state = {
+    files: new Map(),
+    auditTrail: [],
+    currentStage: 1,
+    reportBlobs: []
+  };
+
+  /* ============================================
+     UTILIDADES
+     ============================================ */
+
+  function $(selector) {
+    return document.querySelector(selector);
+  }
+
+  function $$(selector) {
+    return document.querySelectorAll(selector);
+  }
+
+  function escapeHtml(str) {
+    if (str == null) return '';
+    const s = String(str);
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(0) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+  }
+
+  function timeHHMM() {
+    const d = new Date();
+    return String(d.getHours()).padStart(2, '0') + ':' +
+           String(d.getMinutes()).padStart(2, '0');
+  }
+
+  function classifyExtension(filename) {
+    const ext = (filename.split('.').pop() || '').toLowerCase();
+    if (ext === 'txt') return 'txt';
+    if (ext === 'csv') return 'csv';
+    if (ext === 'xlsx' || ext === 'xls') return 'xlsx';
+    return 'otro';
+  }
+
+  function dbg() {
+    if (DEBUG) console.log('[App]', ...arguments);
+  }
+
+  /* ============================================
+     LOG DE ACTIVIDAD
+     ============================================ */
+
+  function addLog(level, message) {
+    const body = $('#log-body');
+    if (!body) return;
+
+    const icons = { ok: '✓', warn: '⚠', error: '✗', info: '•' };
+
+    const entry = document.createElement('div');
+    entry.className = 'log__entry log__entry--' + level;
+
+    const ts = document.createElement('span');
+    ts.className = 'log__timestamp';
+    ts.textContent = timeHHMM();
+
+    const icon = document.createElement('span');
+    icon.className = 'log__icon';
+    icon.textContent = ' ' + (icons[level] || icons.info) + ' ';
+
+    const msg = document.createElement('span');
+    msg.className = 'log__mensaje';
+    msg.textContent = message;
+
+    entry.appendChild(ts);
+    entry.appendChild(icon);
+    entry.appendChild(msg);
+    body.appendChild(entry);
+
+    body.scrollTop = body.scrollHeight;
+  }
+
+  /* ============================================
+     GESTION DE ETAPAS
+     ============================================ */
+
+  function setStageState(stageNum, newState) {
+    const section = $('#etapa-' + stageNum);
+    if (!section) return;
+
+    section.dataset.state = newState;
+
+    const header = section.querySelector('.etapa__header');
+    const body = section.querySelector('.etapa__body');
+    const badgeSlot = section.querySelector('.etapa__badge');
+
+    // Reconstruir badge
+    badgeSlot.textContent = '';
+    const badge = document.createElement('span');
+    switch (newState) {
+      case 'locked':
+        badge.className = 'badge badge--locked';
+        badge.textContent = 'Pendiente';
+        break;
+      case 'active':
+        badge.className = 'badge badge--info';
+        badge.textContent = 'Activa';
+        break;
+      case 'ok':
+        badge.className = 'badge badge--ok';
+        badge.textContent = 'OK';
+        break;
+      case 'warn':
+        badge.className = 'badge badge--warn';
+        badge.textContent = 'Advertencias';
+        break;
+      case 'error':
+        badge.className = 'badge badge--error';
+        badge.textContent = 'Error';
+        break;
+    }
+    badgeSlot.appendChild(badge);
+
+    // Visibilidad del body
+    var expanded = (newState === 'active' || newState === 'error');
+    if (expanded) {
+      body.removeAttribute('hidden');
+    } else {
+      body.setAttribute('hidden', '');
+    }
+    header.setAttribute('aria-expanded', String(expanded));
+
+    if (newState === 'active') {
+      state.currentStage = stageNum;
+    }
+  }
+
+  function setStageWarnCount(stageNum, count) {
+    const section = $('#etapa-' + stageNum);
+    if (!section) return;
+    const badge = section.querySelector('.etapa__badge .badge');
+    if (badge && section.dataset.state === 'warn') {
+      badge.textContent = count + ' alerta' + (count !== 1 ? 's' : '');
+    }
+  }
+
+  function toggleStage(stageNum) {
+    const section = $('#etapa-' + stageNum);
+    if (!section) return;
+    if (section.dataset.state === 'locked') return;
+
+    const header = section.querySelector('.etapa__header');
+    const body = section.querySelector('.etapa__body');
+    var isHidden = body.hasAttribute('hidden');
+
+    if (isHidden) {
+      body.removeAttribute('hidden');
+      header.setAttribute('aria-expanded', 'true');
+    } else {
+      body.setAttribute('hidden', '');
+      header.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function completeStage(stageNum, resultState) {
+    setStageState(stageNum, resultState);
+    addLog(
+      resultState === 'ok' ? 'ok' : 'warn',
+      'Etapa ' + stageNum + ' completada'
+    );
+
+    var next = stageNum + 1;
+    if (next <= 5) {
+      setStageState(next, 'active');
+      addLog('info', 'Etapa ' + next + ' desbloqueada');
+    }
+  }
+
+  /* ============================================
+     DRAG & DROP Y CARGA DE ARCHIVOS
+     ============================================ */
+
+  function initDragDrop() {
+    const zona = $('.zona-carga');
+    const input = zona ? zona.querySelector('.zona-carga__input') : null;
+    if (!zona || !input) return;
+
+    zona.addEventListener('click', function () { input.click(); });
+
+    zona.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        input.click();
+      }
+    });
+
+    zona.addEventListener('dragenter', function (e) {
+      e.preventDefault();
+      zona.classList.add('zona-carga--active');
+    });
+
+    zona.addEventListener('dragover', function (e) {
+      e.preventDefault();
+    });
+
+    zona.addEventListener('dragleave', function (e) {
+      if (!zona.contains(e.relatedTarget)) {
+        zona.classList.remove('zona-carga--active');
+      }
+    });
+
+    zona.addEventListener('drop', function (e) {
+      e.preventDefault();
+      zona.classList.remove('zona-carga--active');
+      if (e.dataTransfer.files.length > 0) {
+        handleFiles(e.dataTransfer.files);
+      }
+    });
+
+    input.addEventListener('change', function () {
+      if (input.files.length > 0) {
+        handleFiles(input.files);
+        input.value = '';
+      }
+    });
+  }
+
+  async function handleFiles(fileList) {
+    for (var i = 0; i < fileList.length; i++) {
+      var file = fileList[i];
+      try {
+        var buffer = await file.arrayBuffer();
+        var ext = classifyExtension(file.name);
+        state.files.set(file.name, {
+          file: file,
+          buffer: buffer,
+          type: ext,
+          size: file.size,
+          category: 'por clasificar'
+        });
+        addLog('info', file.name + ' cargado (' + formatSize(file.size) + ')');
+      } catch (err) {
+        addLog('error', 'Error al leer ' + file.name);
+        dbg('Error reading file:', err);
+      }
+    }
+
+    renderFileList(state.files);
+    document.dispatchEvent(new CustomEvent('app:files-loaded', {
+      detail: { count: state.files.size }
+    }));
+  }
+
+  /* ============================================
+     RENDERIZADO: ETAPA 1 — ARCHIVOS
+     ============================================ */
+
+  function renderFileList(files) {
+    const tbody = $('#archivos-detectados-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    var fileMap = (files instanceof Map) ? files : state.files;
+    if (fileMap.size === 0) return;
+
+    fileMap.forEach(function (info, name) {
+      var tr = document.createElement('tr');
+
+      // Dot de estado
+      var tdDot = document.createElement('td');
+      var dot = document.createElement('span');
+      dot.className = 'dot dot--' + (info.category === 'por clasificar' ? 'warn' : 'ok');
+      tdDot.appendChild(dot);
+
+      // Nombre
+      var tdName = document.createElement('td');
+      tdName.textContent = name;
+
+      // Tag de tipo
+      var tdType = document.createElement('td');
+      var tag = document.createElement('span');
+      tag.className = 'tag-archivo tag-archivo--' + info.type;
+      tag.textContent = info.type.toUpperCase();
+      tdType.appendChild(tag);
+
+      // Categoria
+      var tdCat = document.createElement('td');
+      tdCat.textContent = info.category;
+
+      // Tamano
+      var tdSize = document.createElement('td');
+      tdSize.textContent = formatSize(info.size);
+
+      tr.appendChild(tdDot);
+      tr.appendChild(tdName);
+      tr.appendChild(tdType);
+      tr.appendChild(tdCat);
+      tr.appendChild(tdSize);
+      tbody.appendChild(tr);
+    });
+
+    addLog('ok', fileMap.size + ' archivo(s) detectado(s)');
+  }
+
+  /* ============================================
+     RENDERIZADO: ETAPA 2 — VALIDACION
+     ============================================ */
+
+  function renderValidation(results) {
+    var fuentes = results.fuentes || [];
+    var catalogos = results.catalogos || [];
+    var all = fuentes.concat(catalogos);
+
+    var fuentesEl = $('#fuentes-datos');
+    var catalogosEl = $('#fuentes-catalogos');
+    var alertaEl = $('#etapa-2 .alerta');
+
+    if (fuentesEl) {
+      fuentesEl.innerHTML = '';
+      buildSourceCards(fuentes, fuentesEl);
+    }
+
+    if (catalogosEl) {
+      catalogosEl.innerHTML = '';
+      buildSourceCards(catalogos, catalogosEl);
+    }
+
+    var errorCount = all.filter(function (s) { return s.status === 'error'; }).length;
+    var warnCount = all.filter(function (s) { return s.status === 'warn'; }).length;
+
+    // Alerta superior
+    if (alertaEl) {
+      if (errorCount > 0) {
+        alertaEl.removeAttribute('hidden');
+        var msg = alertaEl.querySelector('.alerta__mensaje');
+        if (msg) {
+          msg.textContent = errorCount + ' fuente(s) con errores — resolver antes de continuar';
+        }
+      } else {
+        alertaEl.setAttribute('hidden', '');
+      }
+    }
+
+    // Boton de avance
+    var btn = $('#etapa-2 .boton--primario');
+    if (btn) btn.disabled = (errorCount > 0);
+
+    addLog('info', 'Validacion: ' + all.length + ' fuente(s) analizada(s)');
+    if (errorCount > 0) addLog('error', errorCount + ' fuente(s) con errores');
+    if (warnCount > 0) addLog('warn', warnCount + ' fuente(s) con advertencias');
+  }
+
+  function buildSourceCards(sources, container) {
+    for (var i = 0; i < sources.length; i++) {
+      var src = sources[i];
+
+      var card = document.createElement('div');
+      card.className = 'tarjeta-fuente tarjeta-fuente--' + src.status;
+
+      // --- Header ---
+      var header = document.createElement('div');
+      header.className = 'tarjeta-fuente__header';
+
+      var dot = document.createElement('span');
+      dot.className = 'dot dot--' + src.status;
+
+      var nombre = document.createElement('span');
+      nombre.className = 'tarjeta-fuente__nombre';
+      nombre.textContent = src.name;
+
+      var meta = document.createElement('span');
+      meta.className = 'tarjeta-fuente__meta';
+      var parts = [];
+      if (src.records != null) parts.push(src.records + ' reg');
+      if (src.key) parts.push('llave: ' + src.key);
+      meta.textContent = parts.join(' · ');
+
+      var badge = document.createElement('span');
+      var alerts = src.alerts || [];
+      if (src.status === 'ok') {
+        badge.className = 'badge badge--ok';
+        badge.textContent = 'OK';
+      } else if (src.status === 'warn') {
+        badge.className = 'badge badge--warn';
+        badge.textContent = alerts.length + ' alerta' + (alerts.length !== 1 ? 's' : '');
+      } else {
+        badge.className = 'badge badge--error';
+        badge.textContent = 'Error';
+      }
+
+      header.appendChild(dot);
+      header.appendChild(nombre);
+      header.appendChild(meta);
+      header.appendChild(badge);
+      card.appendChild(header);
+
+      // --- Body (solo si hay alertas) ---
+      if (alerts.length > 0) {
+        var body = document.createElement('div');
+        body.className = 'tarjeta-fuente__body';
+
+        for (var j = 0; j < alerts.length; j++) {
+          var detail = document.createElement('div');
+          detail.className = 'tarjeta-fuente__detalle';
+
+          var adot = document.createElement('span');
+          adot.className = 'dot dot--' + alerts[j].level;
+
+          var amsg = document.createElement('span');
+          amsg.textContent = alerts[j].message;
+
+          detail.appendChild(adot);
+          detail.appendChild(amsg);
+          body.appendChild(detail);
+        }
+
+        // Acciones de la tarjeta
+        var acciones = document.createElement('div');
+        acciones.className = 'tarjeta-fuente__acciones';
+
+        if (src.status === 'warn') {
+          acciones.appendChild(makeGhostBtn('Ver registros', src.name, 'view'));
+        }
+        acciones.appendChild(makeGhostBtn('Reemplazar', src.name, 'replace'));
+        if (src.status === 'error') {
+          acciones.appendChild(makeGhostBtn('Mapear columnas', src.name, 'map'));
+        }
+
+        body.appendChild(acciones);
+        card.appendChild(body);
+
+        // Toggle body al hacer click en header
+        (function (h, b) {
+          h.addEventListener('click', function () {
+            if (b.hasAttribute('hidden')) {
+              b.removeAttribute('hidden');
+            } else {
+              b.setAttribute('hidden', '');
+            }
+          });
+        })(header, body);
+      }
+
+      container.appendChild(card);
+    }
+  }
+
+  function makeGhostBtn(text, sourceName, action) {
+    var btn = document.createElement('button');
+    btn.className = 'boton boton--ghost';
+    btn.textContent = text;
+    btn.dataset.source = sourceName;
+    btn.dataset.action = action;
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      document.dispatchEvent(new CustomEvent('app:source-action', {
+        detail: { source: sourceName, action: action }
+      }));
+    });
+    return btn;
+  }
+
+  /* ============================================
+     RENDERIZADO: ETAPA 3 — CRUCE
+     ============================================ */
+
+  function renderCrossCheck(results) {
+    var m = $('#metrica-match');
+    var sm = $('#metrica-sin-match');
+    var d = $('#metrica-duplicados');
+    var c = $('#metrica-cobertura');
+
+    if (m) m.textContent = results.match != null ? results.match : 0;
+    if (sm) sm.textContent = results.sinMatch != null ? results.sinMatch : 0;
+    if (d) d.textContent = results.duplicados != null ? results.duplicados : 0;
+    if (c) c.textContent = (results.cobertura != null ? results.cobertura : 0) + '%';
+
+    // Tabla de sin match
+    var tbody = $('#sin-match-body');
+    if (tbody) {
+      tbody.innerHTML = '';
+      var items = results.detalles || [];
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        var tr = document.createElement('tr');
+
+        var tdLlave = document.createElement('td');
+        tdLlave.textContent = item.llave;
+
+        var tdPresente = document.createElement('td');
+        tdPresente.textContent = item.presenteEn;
+
+        var tdMonto = document.createElement('td');
+        tdMonto.textContent = item.monto;
+
+        var tdAccion = document.createElement('td');
+        tdAccion.className = 'excepcion-acciones';
+        renderActionButtons(tdAccion, item.llave, 'cruce');
+
+        tr.appendChild(tdLlave);
+        tr.appendChild(tdPresente);
+        tr.appendChild(tdMonto);
+        tr.appendChild(tdAccion);
+        tbody.appendChild(tr);
+      }
+    }
+
+    // Boton de avance
+    var btn = $('#etapa-3 .boton--primario');
+    if (btn) {
+      btn.disabled = (results.detalles || []).length > 0;
+    }
+
+    addLog('info', 'Cruce: ' + (results.match || 0) + ' coincidencias, ' + (results.sinMatch || 0) + ' sin match');
+  }
+
+  /* ============================================
+     RENDERIZADO: ETAPA 4 — CONCILIACION
+     ============================================ */
+
+  function renderConciliation(results) {
+    var okEl = $('#resumen-ok');
+    var excEl = $('#resumen-excedente');
+    var falEl = $('#resumen-faltante');
+    var errEl = $('#resumen-error');
+
+    if (okEl) okEl.textContent = results.ok != null ? results.ok : 0;
+    if (excEl) excEl.textContent = results.excedente != null ? results.excedente : 0;
+    if (falEl) falEl.textContent = results.faltante != null ? results.faltante : 0;
+    if (errEl) errEl.textContent = results.error != null ? results.error : 0;
+
+    // Cola de excepciones
+    var tbody = $('#excepciones-body');
+    if (tbody) {
+      tbody.innerHTML = '';
+      var excs = results.excepciones || [];
+      for (var i = 0; i < excs.length; i++) {
+        var exc = excs[i];
+        var tr = document.createElement('tr');
+
+        var fields = ['llave', 'concepto', 'esperado', 'real', 'diferencia'];
+        for (var f = 0; f < fields.length; f++) {
+          var td = document.createElement('td');
+          td.textContent = exc[fields[f]] != null ? exc[fields[f]] : '';
+          tr.appendChild(td);
+        }
+
+        var tdAccion = document.createElement('td');
+        tdAccion.className = 'excepcion-acciones';
+        renderActionButtons(tdAccion, exc.llave, 'conciliacion');
+        tr.appendChild(tdAccion);
+
+        tbody.appendChild(tr);
+      }
+    }
+
+    // Novedades
+    var novedadesEl = $('#novedades-lista');
+    if (novedadesEl) {
+      novedadesEl.innerHTML = '';
+      var novs = results.novedades || [];
+      if (novs.length === 0) {
+        var p = document.createElement('p');
+        p.style.color = 'var(--text-muted)';
+        p.style.fontSize = '0.875rem';
+        p.textContent = 'Sin novedades detectadas';
+        novedadesEl.appendChild(p);
+      } else {
+        for (var n = 0; n < novs.length; n++) {
+          var item = document.createElement('div');
+          item.className = 'alerta alerta--info';
+          var msg = document.createElement('span');
+          msg.className = 'alerta__mensaje';
+          msg.textContent = typeof novs[n] === 'string' ? novs[n] : novs[n].mensaje;
+          item.appendChild(msg);
+          novedadesEl.appendChild(item);
+        }
+      }
+    }
+
+    // Boton de avance
+    var btn = $('#etapa-4 .boton--primario');
+    if (btn) {
+      btn.disabled = (results.excepciones || []).length > 0;
+    }
+
+    addLog('info', 'Conciliacion: ' + (results.ok || 0) + ' OK, ' +
+      (results.excedente || 0) + ' excedente(s), ' +
+      (results.faltante || 0) + ' faltante(s)');
+  }
+
+  /* ============================================
+     RENDERIZADO: ETAPA 5 — REPORTES
+     ============================================ */
+
+  function renderReports(reports) {
+    var lista = $('#reportes-lista');
+    if (!lista) return;
+    lista.innerHTML = '';
+
+    state.reportBlobs = reports || [];
+
+    for (var i = 0; i < state.reportBlobs.length; i++) {
+      var report = state.reportBlobs[i];
+      var li = document.createElement('li');
+      li.className = 'reporte-item';
+
+      var nombre = document.createElement('span');
+      nombre.className = 'reporte-item__nombre';
+      nombre.textContent = report.name;
+
+      (function (blob, fname) {
+        var btn = document.createElement('button');
+        btn.className = 'boton boton--ghost';
+        btn.textContent = 'Descargar';
+        btn.setAttribute('aria-label', 'Descargar ' + fname);
+        btn.addEventListener('click', function () { downloadBlob(blob, fname); });
+        li.appendChild(nombre);
+        li.appendChild(btn);
+      })(report.blob, report.name);
+
+      lista.appendChild(li);
+    }
+
+    // Habilitar boton de descargar todo
+    var btnAll = $('#etapa-5 .boton--primario');
+    if (btnAll) btnAll.disabled = (state.reportBlobs.length === 0);
+
+    addLog('ok', state.reportBlobs.length + ' reporte(s) generado(s)');
+  }
+
+  /* ============================================
+     ACCIONES DE EXCEPCIONES
+     ============================================ */
+
+  function renderActionButtons(container, key, context) {
+    var actions = [
+      { label: 'Aprobar', value: 'aprobar' },
+      { label: 'Corregir', value: 'corregir' },
+      { label: 'Excluir', value: 'excluir' }
+    ];
+
+    for (var i = 0; i < actions.length; i++) {
+      (function (act) {
+        var btn = document.createElement('button');
+        btn.className = 'boton boton--accion';
+        btn.textContent = act.label;
+        btn.addEventListener('click', function () {
+          showActionForm(container, key, act.value, context);
+        });
+        container.appendChild(btn);
+      })(actions[i]);
+    }
+  }
+
+  function showActionForm(container, key, action, context) {
+    container.innerHTML = '';
+
+    var form = document.createElement('div');
+    form.className = 'accion-form';
+
+    // Input de valor nuevo (solo para corregir)
+    var valueInput = null;
+    if (action === 'corregir') {
+      valueInput = document.createElement('input');
+      valueInput.type = 'text';
+      valueInput.className = 'accion-form__input';
+      valueInput.placeholder = 'Nuevo valor';
+      form.appendChild(valueInput);
+    }
+
+    // Input de comentario (obligatorio siempre)
+    var commentInput = document.createElement('input');
+    commentInput.type = 'text';
+    commentInput.className = 'accion-form__input';
+    commentInput.placeholder = 'Comentario obligatorio';
+    form.appendChild(commentInput);
+
+    // Fila de botones
+    var btnRow = document.createElement('div');
+    btnRow.className = 'accion-form__buttons';
+
+    var btnConfirm = document.createElement('button');
+    btnConfirm.className = 'boton boton--accion';
+    btnConfirm.textContent = 'Confirmar';
+    btnConfirm.addEventListener('click', function () {
+      var comment = commentInput.value.trim();
+      if (!comment) {
+        commentInput.classList.add('accion-form__input--error');
+        commentInput.focus();
+        return;
+      }
+
+      state.auditTrail.push({
+        timestamp: new Date().toISOString(),
+        key: key,
+        action: action,
+        context: context,
+        comment: comment,
+        newValue: valueInput ? valueInput.value.trim() : null
+      });
+
+      // Reemplazar celda con badge de resultado
+      container.innerHTML = '';
+      var badge = document.createElement('span');
+      badge.className = 'badge badge--' + (action === 'excluir' ? 'locked' : 'ok');
+      badge.textContent = action.charAt(0).toUpperCase() + action.slice(1);
+      container.appendChild(badge);
+
+      addLog('ok', key + ': ' + action + ' — ' + comment);
+      checkAllExceptionsResolved(context);
+    });
+
+    var btnCancel = document.createElement('button');
+    btnCancel.className = 'boton boton--accion';
+    btnCancel.textContent = 'Cancelar';
+    btnCancel.addEventListener('click', function () {
+      container.innerHTML = '';
+      renderActionButtons(container, key, context);
+    });
+
+    btnRow.appendChild(btnConfirm);
+    btnRow.appendChild(btnCancel);
+    form.appendChild(btnRow);
+    container.appendChild(form);
+
+    (valueInput || commentInput).focus();
+  }
+
+  function checkAllExceptionsResolved(context) {
+    var stageNum = (context === 'cruce') ? 3 : 4;
+    var section = $('#etapa-' + stageNum);
+    if (!section) return;
+
+    var cells = section.querySelectorAll('.excepcion-acciones');
+    var allResolved = true;
+    for (var i = 0; i < cells.length; i++) {
+      if (!cells[i].querySelector('.badge')) {
+        allResolved = false;
+        break;
+      }
+    }
+
+    var btn = section.querySelector('.boton--primario');
+    if (btn) btn.disabled = !allResolved;
+  }
+
+  /* ============================================
+     DESCARGAS
+     ============================================ */
+
+  function downloadBlob(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 100);
+  }
+
+  async function downloadAll() {
+    var reports = state.reportBlobs;
+    if (!reports || reports.length === 0) return;
+
+    try {
+      // Cargar JSZip dinamicamente si no esta disponible
+      if (typeof JSZip === 'undefined') {
+        await new Promise(function (resolve, reject) {
+          var script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js';
+          script.onload = resolve;
+          script.onerror = function () { reject(new Error('No se pudo cargar JSZip')); };
+          document.head.appendChild(script);
+        });
+      }
+
+      var zip = new JSZip();
+      for (var i = 0; i < reports.length; i++) {
+        zip.file(reports[i].name, reports[i].blob);
+      }
+
+      var content = await zip.generateAsync({ type: 'blob' });
+      downloadBlob(content, 'reportes_conciliacion.zip');
+      addLog('ok', 'Reportes descargados como ZIP');
+    } catch (err) {
+      addLog('error', 'Error al generar ZIP — descargando individualmente');
+      dbg('JSZip error:', err);
+      for (var i = 0; i < reports.length; i++) {
+        downloadBlob(reports[i].blob, reports[i].name);
+      }
+    }
+  }
+
+  /* ============================================
+     EVENTOS: NAVEGACION DE ETAPAS
+     ============================================ */
+
+  function initStageNavigation() {
+    var contenido = $('.contenido');
+    if (!contenido) return;
+
+    // Click en header de etapa (event delegation)
+    contenido.addEventListener('click', function (e) {
+      var header = e.target.closest('.etapa__header');
+      if (!header) return;
+      var section = header.closest('.etapa');
+      if (!section) return;
+      toggleStage(parseInt(section.dataset.stage, 10));
+    });
+
+    // Soporte de teclado para headers
+    contenido.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      var header = e.target.closest('.etapa__header');
+      if (!header) return;
+      e.preventDefault();
+      var section = header.closest('.etapa');
+      if (!section) return;
+      toggleStage(parseInt(section.dataset.stage, 10));
+    });
+  }
+
+  function initAdvanceButtons() {
+    var contenido = $('.contenido');
+    if (!contenido) return;
+
+    contenido.addEventListener('click', function (e) {
+      var btn = e.target.closest('.boton--primario');
+      if (!btn || btn.disabled) return;
+
+      var section = btn.closest('.etapa');
+      if (!section) return;
+      var stageNum = parseInt(section.dataset.stage, 10);
+
+      // Etapa 5: descargar todo
+      if (stageNum === 5) {
+        downloadAll();
+        return;
+      }
+
+      // Etapa 1: boton Actualizar no avanza
+      if (stageNum === 1) return;
+
+      // Emitir evento para que el bridge procese antes de avanzar
+      var event = new CustomEvent('app:stage-advance', {
+        detail: { stage: stageNum },
+        cancelable: true
+      });
+      var dispatched = document.dispatchEvent(event);
+
+      // Si el bridge no cancelo el evento, avanzar directamente
+      if (dispatched) {
+        completeStage(stageNum, 'ok');
+      }
+    });
+  }
+
+  function initRefreshButton() {
+    var contenido = $('.contenido');
+    if (!contenido) return;
+
+    contenido.addEventListener('click', function (e) {
+      var btn = e.target.closest('.boton--ghost');
+      if (!btn) return;
+      var section = btn.closest('#etapa-1');
+      if (!section) return;
+      if (btn.textContent.trim() === 'Actualizar') {
+        renderFileList(state.files);
+      }
+    });
+  }
+
+  /* ============================================
+     INICIALIZACION
+     ============================================ */
+
+  function init() {
+    addLog('info', 'Sistema iniciado');
+
+    // Configurar estados iniciales
+    setStageState(1, 'active');
+    for (var i = 2; i <= 5; i++) {
+      setStageState(i, 'locked');
+    }
+
+    initStageNavigation();
+    initDragDrop();
+    initAdvanceButtons();
+    initRefreshButton();
+
+    addLog('info', 'Esperando archivos...');
+  }
+
+  /* ============================================
+     API PUBLICA
+     ============================================ */
+
+  return {
+    init: init,
+    addLog: addLog,
+    setStageState: setStageState,
+    setStageWarnCount: setStageWarnCount,
+    completeStage: completeStage,
+    renderFileList: renderFileList,
+    renderValidation: renderValidation,
+    renderCrossCheck: renderCrossCheck,
+    renderConciliation: renderConciliation,
+    renderReports: renderReports,
+    getFiles: function () { return state.files; },
+    getAuditTrail: function () { return state.auditTrail; },
+    downloadAll: downloadAll
+  };
+})();
+
+document.addEventListener('DOMContentLoaded', function () { App.init(); });

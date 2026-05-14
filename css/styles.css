@@ -857,6 +857,49 @@ body {
 .log__entry--info .log__mensaje { color: var(--text-muted); }
 
 /* ============================================
+   FORMULARIO DE ACCIONES (excepciones inline)
+   ============================================ */
+
+.excepcion-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+.accion-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 160px;
+}
+
+.accion-form__input {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  color: var(--text);
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+.accion-form__input:focus {
+  border-color: var(--info);
+}
+
+.accion-form__input--error {
+  border-color: var(--error);
+}
+
+.accion-form__buttons {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+/* ============================================
    NOVEDADES
    ============================================ */
 
