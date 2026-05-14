@@ -920,6 +920,52 @@ body {
 }
 
 /* ============================================
+   CONFIGURACION DETECTADA
+   ============================================ */
+
+.config-detectada {
+  margin-bottom: var(--space-md);
+}
+
+.config-detectada__titulo {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-sm);
+}
+
+.config-detectada__items {
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.config-detectada__item {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--surface-page);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  min-width: 140px;
+}
+
+.config-detectada__label {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.config-detectada__valor {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+/* ============================================
    TARJETA EDA (analisis por archivo)
    ============================================ */
 

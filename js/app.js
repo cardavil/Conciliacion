@@ -1202,7 +1202,7 @@ const App = (() => {
     if (!contenido) return;
 
     contenido.addEventListener('click', function (e) {
-      var btn = e.target.closest('.boton--primario');
+      var btn = e.target.closest('.etapa__acciones .boton--primario');
       if (!btn || btn.disabled) return;
 
       var section = btn.closest('.etapa');
@@ -1279,6 +1279,16 @@ const App = (() => {
 
     try {
       var decimalSep = (1.1).toLocaleString().charAt(1);
+      var milesSep = decimalSep === ',' ? '.' : ',';
+
+      var configCard = document.getElementById('config-detectada');
+      if (configCard) {
+        document.getElementById('config-decimal').textContent = decimalSep === ',' ? 'Coma ( , )' : 'Punto ( . )';
+        document.getElementById('config-miles').textContent = milesSep === '.' ? 'Punto ( . )' : 'Coma ( , )';
+        document.getElementById('config-locale').textContent = navigator.language || 'No detectado';
+        configCard.hidden = false;
+      }
+
       var results = await PyBridge.analyzeAllFiles(filesMap, decimalSep);
       renderEDA(results);
 
