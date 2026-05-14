@@ -724,7 +724,7 @@ const App = (() => {
         { value: '', label: 'No usar en cruce' },
         { value: 'cuenta_cobro', label: 'Cuenta de cobro' },
         { value: 'descuentos', label: 'Descuentos' },
-        { value: 'anterior', label: 'Periodo anterior' }
+        { value: 'maestro', label: 'Maestro' }
       ];
       for (var r = 0; r < roles.length; r++) {
         var opt = document.createElement('option');
@@ -749,16 +749,66 @@ const App = (() => {
         llaveSelect.appendChild(optCol);
       }
 
+      var fechaIngresoSelect = document.createElement('select');
+      fechaIngresoSelect.className = 'config-cruce__select';
+      fechaIngresoSelect.dataset.filename = name;
+      fechaIngresoSelect.dataset.configType = 'fecha-ingreso';
+      fechaIngresoSelect.style.display = 'none';
+      var optFiEmpty = document.createElement('option');
+      optFiEmpty.value = '';
+      optFiEmpty.textContent = '— Fecha ingreso —';
+      fechaIngresoSelect.appendChild(optFiEmpty);
+      for (var fi = 0; fi < columnas.length; fi++) {
+        var optFi = document.createElement('option');
+        optFi.value = columnas[fi];
+        optFi.textContent = columnas[fi];
+        fechaIngresoSelect.appendChild(optFi);
+      }
+
+      var fechaRetiroSelect = document.createElement('select');
+      fechaRetiroSelect.className = 'config-cruce__select';
+      fechaRetiroSelect.dataset.filename = name;
+      fechaRetiroSelect.dataset.configType = 'fecha-retiro';
+      fechaRetiroSelect.style.display = 'none';
+      var optFrEmpty = document.createElement('option');
+      optFrEmpty.value = '';
+      optFrEmpty.textContent = '— Fecha retiro —';
+      fechaRetiroSelect.appendChild(optFrEmpty);
+      for (var fr = 0; fr < columnas.length; fr++) {
+        var optFr = document.createElement('option');
+        optFr.value = columnas[fr];
+        optFr.textContent = columnas[fr];
+        fechaRetiroSelect.appendChild(optFr);
+      }
+
       row.appendChild(span);
       row.appendChild(rolSelect);
       row.appendChild(llaveSelect);
+      row.appendChild(fechaIngresoSelect);
+      row.appendChild(fechaRetiroSelect);
       archivosEl.appendChild(row);
 
-      rolSelect.addEventListener('change', function () {
-        updateConceptColumns();
+      (function (rolSel, fiSel, frSel) {
+        rolSel.addEventListener('change', function () {
+          var isMaestro = rolSel.value === 'maestro';
+          fiSel.style.display = isMaestro ? '' : 'none';
+          frSel.style.display = isMaestro ? '' : 'none';
+          if (!isMaestro) {
+            fiSel.value = '';
+            frSel.value = '';
+          }
+          updateConceptColumns();
+          validateCrossConfig();
+        });
+      })(rolSelect, fechaIngresoSelect, fechaRetiroSelect);
+
+      llaveSelect.addEventListener('change', function () {
         validateCrossConfig();
       });
-      llaveSelect.addEventListener('change', function () {
+      fechaIngresoSelect.addEventListener('change', function () {
+        validateCrossConfig();
+      });
+      fechaRetiroSelect.addEventListener('change', function () {
         validateCrossConfig();
       });
     }
@@ -840,14 +890,15 @@ const App = (() => {
     var rolSelects = document.querySelectorAll('[data-config-type="rol"]');
     var ccCount = 0;
     var descCount = 0;
+    var maestroCount = 0;
     var ccName = null;
     var descName = null;
-    var anteriorName = null;
+    var maestroName = null;
 
     for (var i = 0; i < rolSelects.length; i++) {
       if (rolSelects[i].value === 'cuenta_cobro') { ccCount++; ccName = rolSelects[i].dataset.filename; }
       if (rolSelects[i].value === 'descuentos') { descCount++; descName = rolSelects[i].dataset.filename; }
-      if (rolSelects[i].value === 'anterior') { anteriorName = rolSelects[i].dataset.filename; }
+      if (rolSelects[i].value === 'maestro') { maestroCount++; maestroName = rolSelects[i].dataset.filename; }
     }
 
     var errors = [];
@@ -855,20 +906,35 @@ const App = (() => {
     if (ccCount > 1) errors.push('Solo un archivo puede ser Cuenta de cobro');
     if (descCount === 0) errors.push('Asigna un archivo como Descuentos');
     if (descCount > 1) errors.push('Solo un archivo puede ser Descuentos');
+    if (maestroCount > 1) errors.push('Solo un archivo puede ser Maestro');
 
     var ccLlave = '';
     var descLlave = '';
-    var anteriorLlave = '';
+    var maestroLlave = '';
     var llaveSelects = document.querySelectorAll('[data-config-type="llave"]');
     for (var j = 0; j < llaveSelects.length; j++) {
       if (llaveSelects[j].dataset.filename === ccName) ccLlave = llaveSelects[j].value;
       if (llaveSelects[j].dataset.filename === descName) descLlave = llaveSelects[j].value;
-      if (llaveSelects[j].dataset.filename === anteriorName) anteriorLlave = llaveSelects[j].value;
+      if (llaveSelects[j].dataset.filename === maestroName) maestroLlave = llaveSelects[j].value;
     }
 
     if (ccName && !ccLlave) errors.push('Selecciona llave para Cuenta de cobro');
     if (descName && !descLlave) errors.push('Selecciona llave para Descuentos');
-    if (anteriorName && !anteriorLlave) errors.push('Selecciona llave para Periodo anterior');
+    if (maestroName && !maestroLlave) errors.push('Selecciona llave para Maestro');
+
+    var fechaRetiro = '';
+    var fechaIngreso = '';
+    if (maestroName) {
+      var frSelects = document.querySelectorAll('[data-config-type="fecha-retiro"]');
+      for (var fr = 0; fr < frSelects.length; fr++) {
+        if (frSelects[fr].dataset.filename === maestroName) fechaRetiro = frSelects[fr].value;
+      }
+      var fiSelects = document.querySelectorAll('[data-config-type="fecha-ingreso"]');
+      for (var fi = 0; fi < fiSelects.length; fi++) {
+        if (fiSelects[fi].dataset.filename === maestroName) fechaIngreso = fiSelects[fi].value;
+      }
+      if (!fechaRetiro) errors.push('Selecciona columna de fecha retiro para Maestro');
+    }
 
     var conceptos = [];
     var cbList = document.querySelectorAll('[data-config-type="concepto"]:checked');
@@ -893,7 +959,12 @@ const App = (() => {
       state.crossConfig = {
         cc: { name: ccName, llave: ccLlave },
         desc: { name: descName, llave: descLlave },
-        anterior: anteriorName ? { name: anteriorName, llave: anteriorLlave } : null,
+        maestro: maestroName ? {
+          name: maestroName,
+          llave: maestroLlave,
+          colFechaIngreso: fechaIngreso || null,
+          colFechaRetiro: fechaRetiro
+        } : null,
         conceptos: conceptos
       };
       if (btnStage2) btnStage2.disabled = false;

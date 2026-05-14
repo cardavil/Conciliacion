@@ -924,8 +924,8 @@ body {
 }
 
 .config-cruce__archivo-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-sm);
   align-items: center;
   padding: var(--space-sm) var(--space-md);

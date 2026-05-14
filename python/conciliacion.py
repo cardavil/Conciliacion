@@ -687,7 +687,7 @@ def validar_cruzado(fuentes):
 # ETAPA 4 — CONCILIACION
 # ============================================
 
-def conciliar(cuenta_cobro, descuentos, llave, conceptos, periodo_anterior=None):
+def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_cfg=None):
     """
     Cruza cuenta de cobro vs descuentos por llave y conceptos.
     Por cada registro determina: OK, EXCEDENTE, FALTANTE, SIN_MATCH.
@@ -804,27 +804,40 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, periodo_anterior=None)
                 "estado": estado_reg,
             })
 
-    # Novedades vs periodo anterior
-    if periodo_anterior is not None and llave in periodo_anterior.columns:
-        pa = periodo_anterior.copy()
-        pa[llave] = pa[llave].astype(str).str.strip()
-        llaves_ant = set(pa[llave].unique())
+    # Novedades desde maestro (fecha_ingreso / fecha_retiro)
+    if maestro is not None and maestro_cfg is not None:
+        m = maestro.copy()
+        col_llave_m = maestro_cfg.get("llave", llave)
+        col_retiro = maestro_cfg.get("col_fecha_retiro")
+        col_ingreso = maestro_cfg.get("col_fecha_ingreso")
 
-        nuevos = llaves_cc - llaves_ant
-        retirados = llaves_ant - llaves_cc
+        if col_llave_m in m.columns:
+            m[col_llave_m] = m[col_llave_m].astype(str).str.strip()
 
-        for lv in sorted(nuevos):
-            novedades.append({
-                "llave": lv,
-                "tipo": "NUEVO",
-                "mensaje": "Asociado nuevo: {}".format(lv),
-            })
-        for lv in sorted(retirados):
-            novedades.append({
-                "llave": lv,
-                "tipo": "RETIRO",
-                "mensaje": "Asociado retirado: {}".format(lv),
-            })
+            if col_retiro and col_retiro in m.columns:
+                retiro_mask = m[col_retiro].astype(str).str.strip() != ""
+                for _, fila in m[retiro_mask].iterrows():
+                    lv = str(fila[col_llave_m])
+                    novedades.append({
+                        "llave": lv,
+                        "tipo": "RETIRO",
+                        "mensaje": "Asociado retirado: {} (retiro: {})".format(
+                            lv, fila[col_retiro]),
+                    })
+
+            if col_ingreso and col_ingreso in m.columns:
+                ingreso_mask = m[col_ingreso].astype(str).str.strip() != ""
+                if col_retiro and col_retiro in m.columns:
+                    ingreso_mask = ingreso_mask & (
+                        m[col_retiro].astype(str).str.strip() == "")
+                for _, fila in m[ingreso_mask].iterrows():
+                    lv = str(fila[col_llave_m])
+                    novedades.append({
+                        "llave": lv,
+                        "tipo": "NUEVO",
+                        "mensaje": "Asociado nuevo: {} (ingreso: {})".format(
+                            lv, fila[col_ingreso]),
+                    })
 
     # Estado general
     estado = "ok"

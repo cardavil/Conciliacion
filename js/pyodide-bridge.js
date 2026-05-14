@@ -408,9 +408,17 @@ const PyBridge = (() => {
     pyCode += '_con_llave = "' + escapePyString(config.cc.llave) + '"\n';
     pyCode += '_con_conceptos = ' + JSON.stringify(config.conceptos) + '\n';
 
-    if (config.anterior) {
-      pyCode += '_con_anterior = leer_archivo("/uploads/' + escapePyString(config.anterior.name) + '")\n';
-      pyCode += 'resultado_a_json(conciliar(_con_cc, _con_desc, _con_llave, _con_conceptos, periodo_anterior=_con_anterior))';
+    if (config.maestro) {
+      pyCode += '_con_maestro = leer_archivo("/uploads/' + escapePyString(config.maestro.name) + '")\n';
+      pyCode += '_con_maestro_cfg = {"llave": "' + escapePyString(config.maestro.llave) + '"';
+      pyCode += ', "col_fecha_retiro": "' + escapePyString(config.maestro.colFechaRetiro) + '"';
+      if (config.maestro.colFechaIngreso) {
+        pyCode += ', "col_fecha_ingreso": "' + escapePyString(config.maestro.colFechaIngreso) + '"';
+      } else {
+        pyCode += ', "col_fecha_ingreso": None';
+      }
+      pyCode += '}\n';
+      pyCode += 'resultado_a_json(conciliar(_con_cc, _con_desc, _con_llave, _con_conceptos, maestro=_con_maestro, maestro_cfg=_con_maestro_cfg))';
     } else {
       pyCode += 'resultado_a_json(conciliar(_con_cc, _con_desc, _con_llave, _con_conceptos))';
     }

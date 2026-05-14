@@ -87,7 +87,7 @@ ETAPA 2 — Validación por Fuente
   Detalle de inválidos expandible: click en conteo → mini-tabla Fila/Valor (cap 50)
   Validación numérica locale-aware según separador configurado en Etapa 1
   Umbrales: >20% nulos = warn, >50% = crítico
-  Configuración de cruce: rol por archivo (CC/Desc/Anterior), llave, conceptos
+  Configuración de cruce: rol por archivo (CC/Desc/Maestro), llave, conceptos
   Botón "Continuar a Etapa 3" habilitado solo con config válida
 
 ETAPA 3 — Validación Cruzada
@@ -100,7 +100,7 @@ ETAPA 4 — Conciliación + Excepciones
   Ejecutada automáticamente al avanzar desde Etapa 3
   Cruce por llave y conceptos: OK / EXCEDENTE / FALTANTE / SIN_MATCH
   Cola de excepciones con acciones del analista (comentario obligatorio)
-  Novedades vs período anterior (nuevos, retirados)
+  Novedades desde maestro: retirados (fecha_retiro), nuevos (fecha_ingreso)
   Botón "Generar Reportes" habilitado al resolver todas las excepciones
 
 ETAPA 5 — Reportes
