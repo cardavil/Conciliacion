@@ -194,7 +194,7 @@ def _es_numero_valido(val, decimal_sep=","):
         partes = s.split(decimal_sep)
         if len(partes) != 2:
             return False
-        if not partes[0].isdigit() or not partes[1].isdigit() or len(partes[1]) == 0:
+        if not partes[0].isdigit() or (partes[1] != "" and not partes[1].isdigit()):
             return False
     else:
         if not s.isdigit():
@@ -281,7 +281,7 @@ def _contar_invalidos(serie, tipo_detectado, decimal_sep=","):
     detalle = []
     if n_invalidos > 0:
         for idx in serie[invalidos_mask].index[:MAX_DETALLE_INVALIDOS]:
-            detalle.append({"fila": int(idx) + 1, "valor": str(serie[idx])})
+            detalle.append({"fila": int(idx) + 2, "valor": str(serie[idx])})
     return n_validos, n_invalidos, muestra, detalle
 
 
