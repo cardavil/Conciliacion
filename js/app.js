@@ -151,6 +151,8 @@ const App = (() => {
     if (newState === 'active') {
       state.currentStage = stageNum;
     }
+
+    renderOutputs();
   }
 
   function setStageWarnCount(stageNum, count) {
@@ -535,6 +537,93 @@ const App = (() => {
     wrapper.appendChild(fill);
     wrapper.appendChild(label);
     return wrapper;
+  }
+
+  /* ============================================
+     RENDERIZADO: ETAPA 1 — SALIDAS ESPERADAS
+     ============================================ */
+
+  var SALIDAS_ESPERADAS = [
+    {
+      id: 'conciliacion_consolidada',
+      nombre: 'Conciliacion consolidada',
+      formato: '.xlsx',
+      etapa: 4,
+      descripcion: 'Resultado del cruce cuenta de cobro vs descuentos'
+    },
+    {
+      id: 'extractos_empresa',
+      nombre: 'Extractos por empresa',
+      formato: '.xlsx',
+      etapa: 4,
+      descripcion: 'Detalle de diferencias por empresa vinculante'
+    },
+    {
+      id: 'reporte_excepciones',
+      nombre: 'Reporte de excepciones',
+      formato: '.xlsx',
+      etapa: 4,
+      descripcion: 'Excepciones que requirieron accion del analista'
+    },
+    {
+      id: 'log_auditoria',
+      nombre: 'Log de auditoria',
+      formato: '.xlsx',
+      etapa: 5,
+      descripcion: 'Registro de todas las acciones y decisiones'
+    }
+  ];
+
+  function renderOutputs() {
+    var container = $('#salidas-esperadas');
+    if (!container) return;
+    container.innerHTML = '';
+
+    var currentStage = getCurrentStage();
+
+    for (var i = 0; i < SALIDAS_ESPERADAS.length; i++) {
+      var salida = SALIDAS_ESPERADAS[i];
+      var completada = currentStage > salida.etapa;
+      var enProceso = currentStage === salida.etapa;
+      var estadoKey = completada ? 'listo' : (enProceso ? 'pendiente' : 'bloqueado');
+      var estadoTexto = completada ? 'Generado' : (enProceso ? 'En proceso' : 'Etapa ' + salida.etapa);
+
+      var item = document.createElement('div');
+      item.className = 'salida-item salida-item--' + estadoKey;
+
+      var dot = document.createElement('span');
+      dot.className = 'dot dot--' + (completada ? 'ok' : (enProceso ? 'info' : 'muted'));
+
+      var nombre = document.createElement('span');
+      nombre.className = 'salida-item__nombre';
+      nombre.textContent = salida.nombre;
+      nombre.title = salida.descripcion;
+
+      var formato = document.createElement('span');
+      formato.className = 'salida-item__formato';
+      formato.textContent = salida.formato;
+
+      var estado = document.createElement('span');
+      estado.className = 'salida-item__estado salida-item__estado--' + estadoKey;
+      estado.textContent = estadoTexto;
+
+      item.appendChild(dot);
+      item.appendChild(nombre);
+      item.appendChild(formato);
+      item.appendChild(estado);
+      container.appendChild(item);
+    }
+  }
+
+  function getCurrentStage() {
+    for (var i = 5; i >= 1; i--) {
+      var section = $('#etapa-' + i);
+      if (section) {
+        var st = section.getAttribute('data-state');
+        if (st === 'ok' || st === 'active' || st === 'warn') return i;
+      }
+    }
+    return 1;
   }
 
   /* ============================================
@@ -1180,6 +1269,7 @@ const App = (() => {
     completeStage: completeStage,
     renderFileList: renderFileList,
     renderEDA: renderEDA,
+    renderOutputs: renderOutputs,
     renderValidation: renderValidation,
     renderCrossCheck: renderCrossCheck,
     renderConciliation: renderConciliation,

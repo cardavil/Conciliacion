@@ -11,6 +11,10 @@ from io import BytesIO
 from datetime import datetime
 
 
+def _es_tipo_texto(dtype):
+    return pd.api.types.is_string_dtype(dtype) or dtype == object
+
+
 # ============================================
 # UTILIDADES
 # ============================================
@@ -151,16 +155,21 @@ def _detectar_tipo_columna(serie):
     Analiza una muestra de hasta 100 valores no nulos.
     Retorna: (tipo_detectado, formato_inconsistente)
     """
+    es_texto = _es_tipo_texto(serie.dtype)
     muestra = serie.dropna()
-    if serie.dtype == object:
+    if es_texto:
         muestra = muestra[muestra.astype(str).str.strip() != ""]
     muestra = muestra.head(100)
 
     if len(muestra) == 0:
         return "texto", False
 
+    # Ceros iniciales indican identificador (cedula, codigo), no numero ni fecha
+    if es_texto and muestra.astype(str).str.match(r'^0\d+').any():
+        return "texto", False
+
     # Intentar numerico
-    if serie.dtype == object:
+    if es_texto:
         try:
             pd.to_numeric(muestra, errors="raise")
             return "numerico", False
@@ -177,7 +186,7 @@ def _detectar_tipo_columna(serie):
         return "numerico", False
 
     # Intentar fecha
-    if serie.dtype == object:
+    if es_texto:
         formatos_fecha = [
             "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y",
             "%Y%m%d", "%d-%m-%Y", "%d.%m.%Y",
@@ -242,13 +251,14 @@ def _perfilar_columna(serie):
     n_total = len(serie)
     n_nulos = int(serie.isna().sum())
     n_vacios = 0
-    if serie.dtype == object:
+    es_texto = _es_tipo_texto(serie.dtype)
+    if es_texto:
         n_vacios = int((serie.astype(str).str.strip() == "").sum())
 
     tipo_detectado, formato_inconsistente = _detectar_tipo_columna(serie)
 
     muestra_vals = serie.dropna()
-    if serie.dtype == object:
+    if es_texto:
         muestra_vals = muestra_vals[muestra_vals.astype(str).str.strip() != ""]
     valores_muestra = [str(v) for v in muestra_vals.unique()[:5]]
 
@@ -358,15 +368,17 @@ def analizar_archivo(nombre, ruta):
 
     meta["perfil_columnas"] = perfil_columnas
 
-    # Sugerir llave primaria
+    # Sugerir llave primaria (ignorar vacios de filas completamente vacias)
     for pc in perfil_columnas:
-        if pc["nulos"] == 0 and pc["vacios"] == 0 and pc["unicos"] == pc["total"]:
+        n_effective = pc["total"] - pc["nulos"] - pc["vacios"]
+        unicos_sin_vacios = pc["unicos"] - (1 if pc["vacios"] > 0 else 0)
+        if n_effective > 0 and unicos_sin_vacios == n_effective:
             meta["llave_sugerida"] = pc["nombre"]
             break
 
     # Detectar filas completamente vacias
     filas_vacias = df.isna().all(axis=1)
-    if df.dtypes.apply(lambda dt: dt == object).any():
+    if df.dtypes.apply(_es_tipo_texto).any():
         filas_vacias = filas_vacias | df.astype(str).apply(
             lambda row: row.str.strip().eq("").all(), axis=1
         )
@@ -404,9 +416,9 @@ def inferir_perfil(df, nombre):
         info_col = _perfilar_columna(df[col])
         perfil["columnas"].append(info_col)
 
-        if (info_col["nulos"] == 0 and info_col["vacios"] == 0
-                and info_col["unicos"] == info_col["total"]
-                and perfil["llave_sugerida"] is None):
+        n_eff = info_col["total"] - info_col["nulos"] - info_col["vacios"]
+        uniq_eff = info_col["unicos"] - (1 if info_col["vacios"] > 0 else 0)
+        if n_eff > 0 and uniq_eff == n_eff and perfil["llave_sugerida"] is None:
             perfil["llave_sugerida"] = col
 
     return perfil
@@ -479,7 +491,7 @@ def validar_fuente(nombre, ruta, perfil=None):
 
     # Detectar filas completamente vacias
     filas_vacias = df.isna().all(axis=1)
-    if df.dtypes.apply(lambda dt: dt == object).any():
+    if df.dtypes.apply(_es_tipo_texto).any():
         filas_vacias = filas_vacias | df.astype(str).apply(
             lambda row: row.str.strip().eq("").all(), axis=1
         )

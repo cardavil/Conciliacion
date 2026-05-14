@@ -598,6 +598,7 @@ body {
 .dot--error { background: var(--error); }
 .dot--info { background: var(--info); }
 .dot--locked { background: var(--locked); }
+.dot--muted { background: var(--text-muted); }
 
 /* ============================================
    TAG DE ARCHIVO
@@ -1086,6 +1087,82 @@ body {
 .tabla--eda tbody td {
   padding: var(--space-xs) var(--space-sm);
   font-size: 0.75rem;
+}
+
+/* ============================================
+   SALIDAS ESPERADAS
+   ============================================ */
+
+.salidas-esperadas {
+  margin-top: var(--space-lg);
+}
+
+.salidas-esperadas__titulo {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-sm);
+}
+
+.salidas-esperadas__lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.salida-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.salida-item--listo {
+  border-left: 3px solid var(--ok-base);
+}
+
+.salida-item--pendiente {
+  border-left: 3px solid var(--border-subtle);
+}
+
+.salida-item--bloqueado {
+  border-left: 3px solid var(--warn-base);
+  opacity: 0.7;
+}
+
+.salida-item__nombre {
+  font-weight: 500;
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.salida-item__formato {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--surface-elevated);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.salida-item__estado {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.salida-item__estado--listo {
+  color: var(--ok-base);
+}
+
+.salida-item__estado--pendiente {
+  color: var(--text-muted);
+}
+
+.salida-item__estado--bloqueado {
+  color: var(--warn-base);
 }
 
 /* ============================================
