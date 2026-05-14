@@ -62,15 +62,16 @@ Usuario descarga reportes generados por Python
 Conciliacion/
 ├── index.html             ← entrada principal (GitHub Pages)
 ├── css/
-│   └── styles.css
+│   └── styles.css         ← sistema de diseño (~1100 líneas, custom properties)
 ├── js/
-│   ├── app.js             ← orquestador UI
-│   └── pyodide-bridge.js  ← comunicación JS ↔ Pyodide
+│   ├── app.js             ← orquestador UI (~1300 líneas, IIFE → App)
+│   └── pyodide-bridge.js  ← comunicación JS ↔ Pyodide (~400 líneas, IIFE → PyBridge)
 ├── python/
-│   └── conciliacion.py    ← lógica de procesamiento (pandas)
-├── CLAUDE.md
-├── STACK.md
-├── DATA.md
+│   └── conciliacion.py    ← lógica de procesamiento (~770 líneas, pandas)
+├── CLAUDE.md              ← contexto de negocio y reglas
+├── STACK.md               ← decisiones técnicas (este archivo)
+├── DATA.md                ← modelo de datos
+├── DESIGN.md              ← diseño UI y componentes
 ├── README.md
 └── .gitignore
 ```
@@ -98,7 +99,43 @@ Conciliacion/
 
 ---
 
-## 7. RESTRICCIONES
+## 7. MÓDULOS IMPLEMENTADOS
+
+### Python (conciliacion.py)
+```
+Utilidades     : detectar_encoding, detectar_separador, leer_archivo, resultado_a_json
+Helpers EDA    : _detectar_tipo_columna, _perfilar_columna, _verificar_consistencia_separador
+Etapa 1        : analizar_archivo (perfil completo con tipos, nulos, llave sugerida)
+Etapa 2        : inferir_perfil, validar_fuente (umbral 20%/50% nulos, formato inconsistente)
+Etapa 3        : validar_cruzado (match, sin match, cobertura)
+Etapa 4        : conciliar (OK/EXCEDENTE/FALTANTE/SIN_MATCH + novedades)
+Etapa 5        : generar_reportes (Excel vía openpyxl)
+```
+
+### JS — App (app.js)
+```
+Patrón         : IIFE → const App, API pública
+Etapa 1        : drag & drop, renderFileList, renderEDA, renderOutputs (salidas esperadas)
+Etapa 2        : renderValidation, buildSourceCards
+Etapa 3        : renderCrossCheck (métricas + tabla sin match)
+Etapa 4        : renderConciliation (excepciones con acciones + audit trail)
+Etapa 5        : renderReports, downloadBlob, downloadAll (JSZip dinámico)
+Excepciones    : Aprobar/Corregir/Excluir con comentario obligatorio
+```
+
+### JS — Bridge (pyodide-bridge.js)
+```
+Patrón         : IIFE → const PyBridge, API pública
+Carga          : init() → Pyodide + micropip + conciliacion.py
+Transferencia  : loadFile, loadFiles (ArrayBuffer → Pyodide FS)
+Ejecución      : callPython, callPythonSimple (con timeout 300s)
+EDA            : analyzeFile, analyzeAllFiles
+Lectura        : readGeneratedFile, readGeneratedFiles (Pyodide FS → Blob)
+```
+
+---
+
+## 8. RESTRICCIONES
 
 ```
 - No usar frameworks JS (no React, no Vue, no Angular)

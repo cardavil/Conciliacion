@@ -113,11 +113,51 @@ ERROR    →  rojo, tiene errores que bloquean avance
 └────────────────────────────────────────────────┘
 ```
 
+### Análisis EDA por archivo (tarjetas expandibles)
+```
+┌────────────────────────────────────────────────┐
+│ Análisis de calidad por archivo                │
+│                                                │
+│ ┌────────────────────────────────────────────┐ │
+│ │● archivo1.txt  1842 filas · 8 cols  [OK]  │ │
+│ │  (click para expandir tabla de columnas)   │ │
+│ │  Columna  │ Tipo     │ Nulos │ Vacíos │ Muestra │
+│ │  cedula   │ texto    │  ▓ 0% │   0    │ 00123.. │
+│ │  monto    │ numérico │  ▓ 2% │   0    │ 1234.56 │
+│ │  fecha    │ fecha    │  ▓ 0% │   0    │ 2024-.. │
+│ │  ⚠ col_a: 25% valores nulos/vacíos        │ │
+│ └────────────────────────────────────────────┘ │
+│ ┌────────────────────────────────────────────┐ │
+│ │⚠ archivo2.xlsx  671 filas · 5 cols [2 ⚠]  │ │
+│ └────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────┘
+```
+
+### Salidas esperadas
+```
+┌────────────────────────────────────────────────┐
+│ Salidas esperadas                              │
+│                                                │
+│  ○  Conciliación consolidada    .xlsx  Etapa 4 │
+│  ○  Extractos por empresa       .xlsx  Etapa 4 │
+│  ○  Reporte de excepciones      .xlsx  Etapa 4 │
+│  ○  Log de auditoría            .xlsx  Etapa 5 │
+│                                                │
+│  (estado se actualiza: Bloqueado → En proceso  │
+│   → Generado según avance de etapas)           │
+└────────────────────────────────────────────────┘
+```
+
 ### Elementos
 - Zona de drag & drop para subir archivos
 - Tabla de archivos detectados con: indicador (●/⚠), nombre, tipo, categoría, tamaño
 - Tags de tipo de archivo (TXT, XLSX, CSV) con color diferenciado
 - Archivos sin clasificar marcados con advertencia
+- Tarjetas EDA expandibles por archivo con tabla de columnas (tipo, nulos, vacíos, únicos, muestra)
+- Tags de tipo de columna: texto (gris), numérico (azul), fecha (violeta)
+- Mini-bar visual de porcentaje de nulos por columna
+- Badge de llave sugerida en columna candidata
+- Sección de salidas esperadas con estado por etapa (bloqueado/pendiente/generado)
 - Botón actualizar
 
 ---
@@ -304,14 +344,20 @@ Monospace  : para datos, llaves, nombres de archivo
 ## 11. COMPONENTES REUTILIZABLES
 
 ```
-Badge         : píldora con texto + color de estado
-Tarjeta       : bloque con header clickeable + body expandible
-Tabla          : filas con hover, cabeceras uppercase
-Alerta         : barra con icono + mensaje + color de fondo
-Botón primario : fondo oscuro, texto blanco, deshabilitado si no aplica
-Botón ghost    : borde sutil, texto gris, hover con color
-Dot            : círculo de 6px con color de estado
-Tag de archivo : badge pequeño con tipo (TXT, CSV, XLSX)
+Badge            : píldora con texto + color de estado
+Tarjeta          : bloque con header clickeable + body expandible
+Tarjeta EDA      : variante de tarjeta con tabla de columnas (ok/warn/error)
+Tabla            : filas con hover, cabeceras uppercase
+Tabla compacta   : variante para EDA (font 0.75rem, padding reducido)
+Alerta           : barra con icono + mensaje + color de fondo
+Botón primario   : fondo oscuro, texto blanco, deshabilitado si no aplica
+Botón ghost      : borde sutil, texto gris, hover con color
+Dot              : círculo de 6px con color de estado (ok/warn/error/info/locked/muted)
+Tag de archivo   : badge pequeño con tipo (TXT, CSV, XLSX)
+Tag de tipo      : badge de tipo de columna (texto gris, numérico azul, fecha violeta)
+Mini-bar         : barra de porcentaje de nulos (verde < 20%, amarillo < 50%, rojo ≥ 50%)
+Salida esperada  : ítem de output con dot + nombre + formato + estado
+Form de acción   : formulario inline para excepciones (comentario obligatorio)
 ```
 
 ---

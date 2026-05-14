@@ -75,19 +75,24 @@ God-file     : Un solo HTML que funciona offline (se genera al final)
 
 ```
 ETAPA 1 — Revisión de Entorno
-  Detectar y clasificar archivos subidos por el usuario
+  Input  : archivos subidos por el usuario (drag & drop)
+  EDA    : perfil automático por columna (tipo, nulos, vacíos, muestra, llave sugerida)
+  Output : vista previa de salidas esperadas (consolidado, extractos, excepciones, log)
 
 ETAPA 2 — Validación por Fuente
   Validar cada archivo individualmente (estructura, tipos, llaves)
+  Umbrales: >20% nulos = warn, >50% = crítico
 
 ETAPA 3 — Validación Cruzada
-  Verificar consistencia entre fuentes
+  Verificar consistencia entre fuentes (match, sin match, duplicados, cobertura)
 
 ETAPA 4 — Conciliación + Excepciones
   Cruzar descuentos vs cuenta de cobro, detectar diferencias
+  Acciones del analista: Aprobar / Corregir / Excluir (comentario obligatorio)
 
 ETAPA 5 — Reportes
-  Generar outputs descargables + audit trail
+  Generar outputs descargables (.xlsx) + audit trail
+  Salidas: conciliación consolidada, extractos, excepciones, log de auditoría
 ```
 
 ---
@@ -108,16 +113,32 @@ ERROR        : dato inválido
 
 ## 5. REGLAS PARA CLAUDE CODE
 
+### Ciclo obligatorio de cambios
+```
+1. Auditoría    → revisar estado actual del código/funcionalidad
+2. Diagnóstico  → identificar problemas específicos con evidencia
+3. Plan         → proponer cambios concretos (plan mode)
+4. Aprobación   → el usuario revisa y aprueba antes de tocar código
+5. Implementación → ejecutar solo lo aprobado
+```
+No se modifica código sin pasar por este ciclo. Sin autorización no se hace nada.
+
 ### Siempre
+- Seguir el ciclo auditoría → diagnóstico → plan → aprobación → implementación
 - Leer este archivo completo antes de cualquier acción
 - El modelo de datos se infiere de archivos reales, no se inventa
 - Todo error debe ser visible para el analista (nunca silenciar)
+- Toda acción del analista requiere comentario (audit trail)
+- Los datos nunca salen de la máquina del usuario
 
 ### Nunca
 - Hardcodear datos de negocio (CCs, montos, nombres de empresa)
 - Inventar datos ficticios para pruebas
 - Asumir nombres de columnas, llaves o tipos de dato
 - Usar print() para debugging
+- Usar eval() en JavaScript
+- Ejecutar código Python arbitrario del usuario (solo conciliacion.py del mismo origen)
+- Usar pathlib, subprocess, threading ni multiprocessing en Python
 
 ---
 

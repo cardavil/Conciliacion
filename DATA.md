@@ -81,9 +81,51 @@ archivo → columna_real → columna_sistema → tipo → nullable
 
 ---
 
-## 4. NOTAS
+## 4. DETECCIÓN AUTOMÁTICA (EDA)
+
+Al subir un archivo, el sistema detecta automáticamente:
+
+```
+Por archivo:
+  - Encoding (UTF-8 / Latin-1)
+  - Separador (| ; , \t) con verificación de consistencia
+  - Filas, columnas, nombres de columna
+  - Filas completamente vacías
+
+Por columna:
+  - Tipo: texto / numérico / fecha
+  - Formato inconsistente (ej: mezcla de 1.234,56 y 1234.56)
+  - Nulos (NaN) y vacíos (cadena vacía)
+  - Porcentaje de nulos+vacíos (umbral 20% warn, 50% crítico)
+  - Valores únicos
+  - Muestra de hasta 5 valores (preserva ceros iniciales)
+
+Llave sugerida:
+  - Primera columna con 0 nulos, 0 vacíos y todos los valores únicos
+  - Ignora filas completamente vacías para la evaluación
+
+Tipos detectados:
+  - texto    : no es numérico ni fecha, o tiene ceros iniciales (cédulas, códigos)
+  - numérico : parseable como número, sin ceros iniciales
+  - fecha    : matchea alguno de 8 formatos (ISO, dd/mm/yyyy, etc.) o parsing flexible
+```
+
+---
+
+## 5. SALIDAS GENERADAS
+
+```
+Conciliación consolidada  (.xlsx)  — Resultado del cruce cuenta de cobro vs descuentos
+Extractos por empresa     (.xlsx)  — Detalle de diferencias por empresa vinculante
+Reporte de excepciones    (.xlsx)  — Excepciones que requirieron acción del analista
+Log de auditoría          (.xlsx)  — Registro de todas las acciones y decisiones
+```
+
+---
+
+## 6. NOTAS
 
 - Todo lo que dice "por confirmar" se resuelve al subir el primer archivo real
-- El sistema debe inferir columnas y tipos automáticamente
-- El analista aprueba o corrige la inferencia
+- El sistema infiere columnas y tipos automáticamente (ver sección 4)
+- El analista aprueba o corrige la inferencia en la UI
 - Este archivo se actualiza cada vez que se confirma una fuente nueva
