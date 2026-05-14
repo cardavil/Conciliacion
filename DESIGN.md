@@ -1,0 +1,328 @@
+# DESIGN.md — Diseño del Sistema
+
+> Referencia visual y funcional para la UI. Basado en mockups iniciales.
+
+---
+
+## 1. LAYOUT GENERAL
+
+```
+┌──────────────────────────────────────────────────┐
+│  TOPBAR                                          │
+│  Logo · Período activo · Estado general          │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│  CONTENIDO PRINCIPAL                             │
+│                                                  │
+│  Etapas apiladas verticalmente (acordeón)        │
+│  Cada etapa se expande/colapsa                   │
+│  Solo una etapa activa a la vez                  │
+│                                                  │
+│  ┌────────────────────────────────────────────┐  │
+│  │ Etapa 1 · Revisión de Entorno     [✓ OK]  │  │
+│  ├────────────────────────────────────────────┤  │
+│  │ (contenido colapsado o expandido)          │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+│  ┌────────────────────────────────────────────┐  │
+│  │ Etapa 2 · Validación por Fuente   [⚠ 2]   │  │
+│  ├────────────────────────────────────────────┤  │
+│  │ (contenido colapsado o expandido)          │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+│  ┌────────────────────────────────────────────┐  │
+│  │ Etapa 3 · Validación Cruzada      [● ACT] │  │
+│  ├────────────────────────────────────────────┤  │
+│  │ (contenido expandido — etapa activa)       │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+│  ┌────────────────────────────────────────────┐  │
+│  │ Etapa 4 · Conciliación            [🔒]     │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+│  ┌────────────────────────────────────────────┐  │
+│  │ Etapa 5 · Reportes                [🔒]     │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+│  ┌────────────────────────────────────────────┐  │
+│  │ Log de actividad                           │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. TOPBAR
+
+```
+┌──────────────────────────────────────────────────┐
+│  Conciliación Quincenal · Q1 · Mayo 2026  [● EN PROCESO] │
+└──────────────────────────────────────────────────┘
+```
+
+- Título del sistema
+- Período activo (quincena, mes, año)
+- Badge de estado general (EN PROCESO / COMPLETADO / ERROR)
+
+---
+
+## 3. SISTEMA DE ETAPAS
+
+### Estados de cada etapa
+```
+LOCKED   →  gris, no clickeable, etapa anterior no completada
+ACTIVE   →  azul, expandida, etapa en curso
+OK       →  verde, completada sin problemas
+WARN     →  amarillo, completada con advertencias
+ERROR    →  rojo, tiene errores que bloquean avance
+```
+
+### Reglas de navegación
+```
+- Las etapas son secuenciales (1 → 2 → 3 → 4 → 5)
+- No se puede avanzar si la etapa actual tiene errores críticos
+- Se puede volver a etapas anteriores (para revisar, no para editar)
+- La etapa activa se expande automáticamente
+- Las completadas muestran resumen colapsado
+- Las pendientes muestran solo el header con candado
+```
+
+---
+
+## 4. ETAPA 1 — REVISIÓN DE ENTORNO
+
+### Contenido expandido
+```
+┌────────────────────────────────────────────────┐
+│ Etapa 1 · Revisión de Entorno          [✓ OK] │
+├────────────────────────────────────────────────┤
+│                                                │
+│  [Zona de carga de archivos — drag & drop]     │
+│                                                │
+│  ─────────────────────────────────────         │
+│  Archivos detectados (N)                       │
+│                                                │
+│  ●  archivo1.txt     TXT·|   Fuente    248 KB  │
+│  ●  archivo2.txt     TXT·|   Fuente    312 KB  │
+│  ●  archivo3.xlsx    XLSX    Fuente    189 KB  │
+│  ●  catalogo1.csv    CSV     Catálogo    4 KB  │
+│  ⚠  otro.xlsx        XLSX   Sin clasificar     │
+│                                                │
+│                          [↻ Actualizar]        │
+└────────────────────────────────────────────────┘
+```
+
+### Elementos
+- Zona de drag & drop para subir archivos
+- Tabla de archivos detectados con: indicador (●/⚠), nombre, tipo, categoría, tamaño
+- Tags de tipo de archivo (TXT, XLSX, CSV) con color diferenciado
+- Archivos sin clasificar marcados con advertencia
+- Botón actualizar
+
+---
+
+## 5. ETAPA 2 — VALIDACIÓN POR FUENTE
+
+### Contenido expandido
+```
+┌────────────────────────────────────────────────┐
+│ Etapa 2 · Validación por Fuente     [⚠ 2]     │
+├────────────────────────────────────────────────┤
+│                                                │
+│  ⚠ 1 fuente con errores — resolver antes de   │
+│    continuar al cruce                          │
+│                                                │
+│  FUENTES DE DATOS                              │
+│  ┌──────────────────────────────────────────┐  │
+│  │● archivo1.txt  1,842 reg · llave: X  [OK]│  │
+│  └──────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────┐  │
+│  │⚠ archivo2.xlsx  671 reg        [3 alertas]│  │
+│  │  ⚠ N valores vacíos en columna X         │  │
+│  │  ⚠ N registros con formato inconsistente │  │
+│  │           [📋 Ver registros] [📂 Reemplazar]│  │
+│  └──────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────┐  │
+│  │✗ archivo3.csv                    [Error]  │  │
+│  │  ✗ Columna esperada X no encontrada      │  │
+│  │  Columnas encontradas: a, b, c           │  │
+│  │      [⚙ Mapear columnas] [📂 Reemplazar]  │  │
+│  └──────────────────────────────────────────┘  │
+│                                                │
+│  CATÁLOGOS DE REFERENCIA                       │
+│  (misma estructura de tarjetas)                │
+│                                                │
+│              [▶ Continuar a Etapa 3]           │
+│              (deshabilitado si hay errores)     │
+└────────────────────────────────────────────────┘
+```
+
+### Elementos
+- Alerta superior si hay errores bloqueantes
+- Tarjetas por fuente con borde lateral de color (verde/amarillo/rojo)
+- Cada tarjeta muestra: nombre, N registros, llave inferida, badge de estado
+- Las tarjetas con problemas se expanden mostrando detalle
+- Separación entre Fuentes de datos y Catálogos de referencia
+- Acciones por fuente: ver registros, reemplazar archivo, mapear columnas
+- Botón de avance (deshabilitado si hay errores)
+
+---
+
+## 6. ETAPA 3 — VALIDACIÓN CRUZADA
+
+### Contenido expandido
+```
+┌────────────────────────────────────────────────┐
+│ Etapa 3 · Validación Cruzada        [● ACT]   │
+├────────────────────────────────────────────────┤
+│                                                │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────┐│
+│  │  1,618   │ │    24    │ │    3     │ │98.5%││
+│  │  Match   │ │ Sin match│ │Duplicados│ │Cob. ││
+│  └──────────┘ └──────────┘ └──────────┘ └────┘│
+│                                                │
+│  DETALLE SIN MATCH                             │
+│  ┌──────────────────────────────────────────┐  │
+│  │ Llave │ Presente en    │ Monto │ Acción  │  │
+│  │ XXX   │ Fuente A no B  │ $NNN  │ [✓][✏][✗]│  │
+│  │ YYY   │ Fuente B no A  │ $NNN  │ [✓][✏][✗]│  │
+│  └──────────────────────────────────────────┘  │
+│                                                │
+│  [▶ Continuar] (deshabilitado si hay críticos) │
+└────────────────────────────────────────────────┘
+```
+
+### Elementos
+- Tarjetas de métricas: match exitoso, sin match, duplicados, cobertura
+- Tabla de registros sin match con acciones (Aprobar / Corregir / Excluir)
+- Cada acción requiere comentario obligatorio
+- Botón de avance condicionado
+
+---
+
+## 7. ETAPA 4 — CONCILIACIÓN + EXCEPCIONES
+
+### Contenido expandido
+```
+┌────────────────────────────────────────────────┐
+│ Etapa 4 · Conciliación              [● ACT]   │
+├────────────────────────────────────────────────┤
+│                                                │
+│  RESUMEN                                       │
+│  OK: N · EXCEDENTE: N · FALTANTE: N · ERROR: N│
+│                                                │
+│  COLA DE EXCEPCIONES                           │
+│  ┌──────────────────────────────────────────┐  │
+│  │ Llave │ Concepto │ Esperado │ Real │ Dif │  │
+│  │       │          │          │      │     │  │
+│  │ Acciones: [Aprobar] [Corregir] [Excluir] │  │
+│  │ Comentario: ________________________     │  │
+│  └──────────────────────────────────────────┘  │
+│                                                │
+│  NOVEDADES VS PERÍODO ANTERIOR                 │
+│  (nuevos, retirados, cambios de valor)         │
+│                                                │
+│              [▶ Generar Reportes]               │
+└────────────────────────────────────────────────┘
+```
+
+### Elementos
+- Resumen de estados (OK/EXCEDENTE/FALTANTE/ERROR) con conteo
+- Tabla de excepciones con: llave, concepto, valor esperado, valor real, diferencia
+- Acciones con comentario obligatorio
+- Sección de novedades detectadas automáticamente
+- Botón para generar reportes
+
+---
+
+## 8. ETAPA 5 — REPORTES
+
+### Contenido expandido
+```
+┌────────────────────────────────────────────────┐
+│ Etapa 5 · Reportes                  [✓ OK]     │
+├────────────────────────────────────────────────┤
+│                                                │
+│  Archivos generados:                           │
+│  📄 resumen_ejecutivo          [⬇ Descargar]   │
+│  📄 excepciones_detalle        [⬇ Descargar]   │
+│  📄 cuenta_cobro_siguiente     [⬇ Descargar]   │
+│  📄 audit_log                  [⬇ Descargar]   │
+│  📄 extractos_individuales     [⬇ Descargar]   │
+│                                                │
+│           [⬇ Descargar todo (.zip)]             │
+└────────────────────────────────────────────────┘
+```
+
+---
+
+## 9. LOG DE ACTIVIDAD
+
+```
+┌────────────────────────────────────────────────┐
+│ Log de actividad                               │
+├────────────────────────────────────────────────┤
+│ 14:02  ✓ Entorno validado                      │
+│ 14:04  ✓ archivo1.txt — N registros OK         │
+│ 14:05  ⚠ archivo2.xlsx — N advertencias        │
+│ 14:05  ✗ archivo3.csv — columna X no encontrada│
+│ 14:08  Esperando resolución de errores...      │
+└────────────────────────────────────────────────┘
+```
+
+- Siempre visible al fondo
+- Scroll independiente
+- Cada entrada: timestamp + icono de nivel + mensaje
+- Colores: verde (OK), amarillo (advertencia), rojo (error), gris (info)
+
+---
+
+## 10. PALETA DE COLORES
+
+### Semáforo de estados
+```
+OK         : verde   — operación exitosa, sin problemas
+ADVERTENCIA: amarillo — hay problemas menores, puede continuar
+ERROR      : rojo    — problemas bloqueantes, requiere acción
+INFO       : azul    — informativo, etapa activa
+LOCKED     : gris    — etapa pendiente, no disponible
+```
+
+### Tema
+```
+Preferencia: tema claro (light mode)
+Fondo      : gris muy claro
+Superficies: blanco
+Bordes     : gris suave
+Texto      : negro/gris oscuro
+Monospace  : para datos, llaves, nombres de archivo
+```
+
+---
+
+## 11. COMPONENTES REUTILIZABLES
+
+```
+Badge         : píldora con texto + color de estado
+Tarjeta       : bloque con header clickeable + body expandible
+Tabla          : filas con hover, cabeceras uppercase
+Alerta         : barra con icono + mensaje + color de fondo
+Botón primario : fondo oscuro, texto blanco, deshabilitado si no aplica
+Botón ghost    : borde sutil, texto gris, hover con color
+Dot            : círculo de 6px con color de estado
+Tag de archivo : badge pequeño con tipo (TXT, CSV, XLSX)
+```
+
+---
+
+## 12. INTERACCIONES CLAVE
+
+```
+Drag & drop     : subir archivos arrastrándolos a la zona de carga
+Click en etapa  : expande/colapsa (solo si está desbloqueada)
+Click en fuente : expande detalle de validación
+Mapear columnas : modal o inline para asignar columna_real → columna_sistema
+Aprobar/Corregir/Excluir : acciones sobre excepciones con comentario obligatorio
+Descargar       : genera y descarga archivos de reporte
+```
