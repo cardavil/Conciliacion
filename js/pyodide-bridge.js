@@ -344,16 +344,18 @@ const PyBridge = (() => {
      EDA: ANALISIS DE ARCHIVOS (ETAPA 1)
      ============================================ */
 
-  async function analyzeFile(name, path) {
+  async function analyzeFile(name, path, decimalSep) {
+    var sep = decimalSep || ',';
     var resultJson = await callPythonSimple(
       'resultado_a_json(analizar_archivo("' +
       escapePyString(name) + '", "' +
-      escapePyString(path) + '"))'
+      escapePyString(path) + '", decimal_sep="' +
+      escapePyString(sep) + '"))'
     );
     return JSON.parse(resultJson);
   }
 
-  async function analyzeAllFiles(filesMap) {
+  async function analyzeAllFiles(filesMap, decimalSep) {
     var paths = await loadFiles(filesMap);
     var results = {};
     var entries = Object.entries(paths);
@@ -362,7 +364,7 @@ const PyBridge = (() => {
       var name = entries[i][0];
       var path = entries[i][1];
       try {
-        results[name] = await analyzeFile(name, path);
+        results[name] = await analyzeFile(name, path, decimalSep);
         App.addLog('info', name + ' analizado');
       } catch (err) {
         App.addLog('error', 'Error analizando ' + name + ': ' + extractPythonError(err));

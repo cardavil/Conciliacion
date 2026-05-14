@@ -497,18 +497,10 @@ const App = (() => {
           tipoTag.textContent = col.tipo_detectado;
           tdTipo.appendChild(tipoTag);
 
-          // Vacios con mini-bar
-          var tdVacios = document.createElement('td');
-          tdVacios.appendChild(buildMiniBar(col.pct_vacios || 0));
-
-          // Validos
-          var tdValidos = document.createElement('td');
-          tdValidos.textContent = col.validos != null ? col.validos : '';
-
           // Invalidos
           var tdInvalidos = document.createElement('td');
           var nInv = col.invalidos || 0;
-          tdInvalidos.textContent = nInv;
+          tdInvalidos.textContent = nInv + '/' + col.total;
           if (nInv > 0) {
             var invDot = document.createElement('span');
             invDot.className = 'dot dot--warn';
@@ -519,6 +511,14 @@ const App = (() => {
               tdInvalidos.title = 'Muestra: ' + invMuestra.join(', ');
             }
           }
+
+          // Validos
+          var tdValidos = document.createElement('td');
+          tdValidos.textContent = (col.validos != null ? col.validos : 0) + '/' + col.total;
+
+          // Vacios
+          var tdVacios = document.createElement('td');
+          tdVacios.textContent = col.vacios + '/' + col.total;
 
           // Unicos
           var tdUnicos = document.createElement('td');
@@ -1278,7 +1278,8 @@ const App = (() => {
     addLog('info', 'Analizando ' + filesMap.size + ' archivo(s)...');
 
     try {
-      var results = await PyBridge.analyzeAllFiles(filesMap);
+      var decimalSep = (1.1).toLocaleString().charAt(1);
+      var results = await PyBridge.analyzeAllFiles(filesMap, decimalSep);
       renderEDA(results);
 
       filesMap.forEach(function (info, name) {

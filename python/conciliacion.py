@@ -158,10 +158,48 @@ FORMATOS_FECHA = [
     "%Y-%m-%d %H:%M:%S", "%d/%m/%Y %H:%M:%S",
 ]
 
-PATRON_NUMERICO_REGIONAL = r'^-?\d{1,3}([.,]\d{3})*([.,]\d+)?$'
+def _es_numero_valido(val, decimal_sep=","):
+    s = str(val).strip()
+    if not s:
+        return False
+    if s.startswith("-"):
+        s = s[1:]
+    if not s:
+        return False
+    miles_sep = "." if decimal_sep == "," else ","
+    if s.endswith(decimal_sep) or s.endswith(miles_sep):
+        return False
+    if s.startswith(miles_sep):
+        return False
+    if miles_sep in s:
+        partes = s.split(miles_sep)
+        if not partes[0].isdigit() or len(partes[0]) > 3 or len(partes[0]) == 0:
+            return False
+        for p in partes[1:]:
+            if decimal_sep in p:
+                sub = p.split(decimal_sep)
+                if len(sub) != 2:
+                    return False
+                if not sub[0].isdigit() or len(sub[0]) != 3:
+                    return False
+                if not sub[1].isdigit() or len(sub[1]) == 0:
+                    return False
+            else:
+                if not p.isdigit() or len(p) != 3:
+                    return False
+    elif decimal_sep in s:
+        partes = s.split(decimal_sep)
+        if len(partes) != 2:
+            return False
+        if not partes[0].isdigit() or not partes[1].isdigit() or len(partes[1]) == 0:
+            return False
+    else:
+        if not s.isdigit():
+            return False
+    return True
 
 
-def _detectar_tipo_columna(serie):
+def _detectar_tipo_columna(serie, decimal_sep=","):
     """
     Detecta el tipo de una columna: 'numerico', 'fecha' o 'texto'.
     Analiza una muestra de hasta 100 valores no vacios.
@@ -177,13 +215,8 @@ def _detectar_tipo_columna(serie):
         return "texto"
 
     if es_texto:
-        resultado_num = pd.to_numeric(muestra, errors="coerce")
-        tasa_num = resultado_num.notna().sum() / len(muestra)
+        tasa_num = muestra.apply(lambda v: _es_numero_valido(v, decimal_sep)).sum() / len(muestra)
         if tasa_num > 0.5:
-            return "numerico"
-
-        patron = muestra.astype(str).str.match(PATRON_NUMERICO_REGIONAL)
-        if patron.sum() > len(muestra) * 0.5:
             return "numerico"
     elif pd.api.types.is_numeric_dtype(serie):
         return "numerico"
@@ -208,7 +241,7 @@ def _detectar_tipo_columna(serie):
     return "texto"
 
 
-def _contar_invalidos(serie, tipo_detectado):
+def _contar_invalidos(serie, tipo_detectado, decimal_sep=","):
     """
     Cuenta valores que no cumplen el tipo detectado.
     serie: valores no-vacios.
@@ -221,12 +254,7 @@ def _contar_invalidos(serie, tipo_detectado):
         return len(serie), 0, []
 
     if tipo_detectado == "numerico":
-        resultado = pd.to_numeric(serie, errors="coerce")
-        invalidos_mask = resultado.isna()
-        # Fallback: formato regional (1.234,56)
-        if invalidos_mask.any():
-            regional = serie[invalidos_mask].astype(str).str.match(PATRON_NUMERICO_REGIONAL)
-            invalidos_mask[invalidos_mask] = ~regional
+        invalidos_mask = ~serie.apply(lambda v: _es_numero_valido(v, decimal_sep))
 
     elif tipo_detectado == "fecha":
         mejor_mask = pd.Series(False, index=serie.index)
@@ -283,7 +311,7 @@ def _verificar_consistencia_separador(ruta, encoding, sep):
     return True, None
 
 
-def _perfilar_columna(serie):
+def _perfilar_columna(serie, decimal_sep=","):
     """
     Genera perfil de una columna: tipo, vacios, validos, invalidos, muestra.
     """
@@ -292,8 +320,8 @@ def _perfilar_columna(serie):
     n_vacios = int(vacios_mask.sum())
     con_valor = serie[~vacios_mask]
 
-    tipo_detectado = _detectar_tipo_columna(serie)
-    n_validos, n_invalidos, muestra_invalidos = _contar_invalidos(con_valor, tipo_detectado)
+    tipo_detectado = _detectar_tipo_columna(serie, decimal_sep)
+    n_validos, n_invalidos, muestra_invalidos = _contar_invalidos(con_valor, tipo_detectado, decimal_sep)
 
     n_unicos = int(serie.nunique())
     valores_muestra = [str(v) for v in con_valor.unique()[:5]]
@@ -320,7 +348,7 @@ def _perfilar_columna(serie):
 # ETAPA 1 — REVISION DE ENTORNO
 # ============================================
 
-def analizar_archivo(nombre, ruta):
+def analizar_archivo(nombre, ruta, decimal_sep=","):
     """
     Analiza un archivo individual sin asumir estructura.
     Detecta: formato, encoding, separador, filas, columnas,
@@ -389,7 +417,7 @@ def analizar_archivo(nombre, ruta):
     # Perfil por columna
     perfil_columnas = []
     for col in df.columns:
-        pc = _perfilar_columna(df[col])
+        pc = _perfilar_columna(df[col], decimal_sep)
         perfil_columnas.append(pc)
 
         if pc["invalidos"] > 0:
@@ -427,7 +455,7 @@ def analizar_archivo(nombre, ruta):
 # ETAPA 2 — VALIDACION POR FUENTE
 # ============================================
 
-def inferir_perfil(df, nombre):
+def inferir_perfil(df, nombre, decimal_sep=","):
     """
     Infiere el perfil de un DataFrame: columnas, tipos detectados,
     posible llave primaria, muestra de valores.
@@ -441,7 +469,7 @@ def inferir_perfil(df, nombre):
     }
 
     for col in df.columns:
-        info_col = _perfilar_columna(df[col])
+        info_col = _perfilar_columna(df[col], decimal_sep)
         perfil["columnas"].append(info_col)
 
         n_eff = info_col["total"] - info_col["vacios"]
@@ -452,7 +480,7 @@ def inferir_perfil(df, nombre):
     return perfil
 
 
-def validar_fuente(nombre, ruta, perfil=None):
+def validar_fuente(nombre, ruta, perfil=None, decimal_sep=","):
     """
     Valida un archivo contra su perfil (si existe) o infiere perfil nuevo.
     Detecta: columnas faltantes, tipos inconsistentes, vacios, duplicados en llave.
@@ -470,7 +498,7 @@ def validar_fuente(nombre, ruta, perfil=None):
         mensajes.append(_msg("error", "El archivo no tiene filas de datos"))
         return _respuesta("error", mensajes)
 
-    perfil_inferido = inferir_perfil(df, nombre)
+    perfil_inferido = inferir_perfil(df, nombre, decimal_sep)
     mensajes.append(_msg("info", "{} filas, {} columnas detectadas".format(
         len(df), len(df.columns)
     )))
