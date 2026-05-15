@@ -73,6 +73,13 @@ const App = (() => {
 
   var ALLOWED_EXTENSIONS = ['txt', 'csv', 'xlsx', 'xls'];
 
+  var CONCEPTOS_FIJOS = ['APORTES', 'AHORROS', 'SEGUROS', 'INCENTIVO', 'CREDITO'];
+  var CAMPOS_OPCIONALES = [
+    { key: 'nombre_asociado', label: 'Nombre asociado' },
+    { key: 'cod_empresa', label: 'Cod. empresa/convenio' },
+    { key: 'nombre_empresa', label: 'Nombre empresa' }
+  ];
+
   function supportsDirectoryPicker() {
     return typeof window.showDirectoryPicker === 'function';
   }
@@ -858,70 +865,118 @@ const App = (() => {
     container.removeAttribute('hidden');
   }
 
+  function getFilesForRole(role) {
+    var names = [];
+    var rolSelects = document.querySelectorAll('[data-config-type="rol"]');
+    for (var i = 0; i < rolSelects.length; i++) {
+      if (rolSelects[i].value === role) names.push(rolSelects[i].dataset.filename);
+    }
+    return names;
+  }
+
+  function getColumnsForFiles(fileNames) {
+    if (fileNames.length === 0) return [];
+    var first = state.edaResults[fileNames[0]];
+    if (!first || !first.datos) return [];
+    return first.datos.nombres_columnas || [];
+  }
+
+  function buildMappingGroup(label, fileNames, columns, groupKey) {
+    var group = document.createElement('div');
+    group.className = 'config-mapeo__grupo';
+
+    var header = document.createElement('div');
+    header.className = 'config-mapeo__grupo-header';
+    header.textContent = label + ' (' + fileNames.join(', ') + ')';
+    group.appendChild(header);
+
+    for (var c = 0; c < CONCEPTOS_FIJOS.length; c++) {
+      group.appendChild(buildMappingRow(CONCEPTOS_FIJOS[c], columns, groupKey, false));
+    }
+
+    var sepOpc = document.createElement('div');
+    sepOpc.className = 'config-mapeo__sep-opc';
+    sepOpc.textContent = 'Opcionales';
+    group.appendChild(sepOpc);
+
+    for (var o = 0; o < CAMPOS_OPCIONALES.length; o++) {
+      group.appendChild(buildMappingRow(CAMPOS_OPCIONALES[o].key, columns, groupKey, true, CAMPOS_OPCIONALES[o].label));
+    }
+
+    return group;
+  }
+
+  function buildMappingRow(concepto, columns, groupKey, optional, displayLabel) {
+    var row = document.createElement('div');
+    row.className = 'config-mapeo__row';
+
+    var lbl = document.createElement('span');
+    lbl.className = 'config-mapeo__label';
+    lbl.textContent = displayLabel || concepto;
+    row.appendChild(lbl);
+
+    var sel = document.createElement('select');
+    sel.className = 'config-cruce__select';
+    sel.dataset.mapeoGroup = groupKey;
+    sel.dataset.mapeoConcepto = concepto;
+
+    var optEmpty = document.createElement('option');
+    optEmpty.value = '';
+    optEmpty.textContent = optional ? '— No usar —' : '— Seleccionar —';
+    sel.appendChild(optEmpty);
+
+    var conceptoLower = concepto.toLowerCase();
+    for (var i = 0; i < columns.length; i++) {
+      var opt = document.createElement('option');
+      opt.value = columns[i];
+      opt.textContent = columns[i];
+      if (columns[i].toLowerCase() === conceptoLower) opt.selected = true;
+      sel.appendChild(opt);
+    }
+
+    sel.addEventListener('change', function () { validateCrossConfig(); });
+    row.appendChild(sel);
+
+    return row;
+  }
+
   function updateConceptColumns() {
     var conceptosSection = $('#config-cruce-conceptos');
     var listaEl = $('#config-conceptos-lista');
     if (!conceptosSection || !listaEl) return;
 
-    var rolSelects = document.querySelectorAll('[data-config-type="rol"]');
-    var ccName = null;
-    var descName = null;
-    for (var i = 0; i < rolSelects.length; i++) {
-      if (rolSelects[i].value === 'cuenta_cobro') ccName = rolSelects[i].dataset.filename;
-      if (rolSelects[i].value === 'descuentos') descName = rolSelects[i].dataset.filename;
-    }
+    var ccNames = getFilesForRole('cuenta_cobro');
+    var descNames = getFilesForRole('descuentos');
 
-    if (!ccName || !descName) {
+    if (ccNames.length === 0 || descNames.length === 0) {
       conceptosSection.setAttribute('hidden', '');
       return;
     }
 
-    var ccResult = state.edaResults[ccName];
-    var descResult = state.edaResults[descName];
-    if (!ccResult || !descResult) return;
+    var ccColumns = getColumnsForFiles(ccNames);
+    var descColumns = getColumnsForFiles(descNames);
 
-    var ccPerfil = (ccResult.datos || {}).perfil_columnas || [];
-    var descPerfil = (descResult.datos || {}).perfil_columnas || [];
-
-    var ccNumericas = {};
-    for (var c = 0; c < ccPerfil.length; c++) {
-      if (ccPerfil[c].tipo_detectado === 'numerico') {
-        ccNumericas[ccPerfil[c].nombre] = true;
-      }
-    }
-
-    var compartidas = [];
-    for (var d = 0; d < descPerfil.length; d++) {
-      if (descPerfil[d].tipo_detectado === 'numerico' && ccNumericas[descPerfil[d].nombre]) {
-        compartidas.push(descPerfil[d].nombre);
-      }
-    }
-
-    listaEl.innerHTML = '';
-    if (compartidas.length === 0) {
-      var aviso = document.createElement('span');
-      aviso.style.color = 'var(--text-muted)';
-      aviso.style.fontSize = '0.8125rem';
-      aviso.textContent = 'No hay columnas numericas compartidas entre ambos archivos';
-      listaEl.appendChild(aviso);
-      conceptosSection.removeAttribute('hidden');
+    if (ccColumns.length === 0 || descColumns.length === 0) {
+      conceptosSection.setAttribute('hidden', '');
       return;
     }
 
-    for (var s = 0; s < compartidas.length; s++) {
-      var label = document.createElement('label');
-      label.className = 'config-cruce__checkbox-item';
-      var cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.value = compartidas[s];
-      cb.dataset.configType = 'concepto';
-      cb.addEventListener('change', function () { validateCrossConfig(); });
-      label.appendChild(cb);
-      label.appendChild(document.createTextNode(compartidas[s]));
-      listaEl.appendChild(label);
-    }
+    listaEl.innerHTML = '';
+    listaEl.appendChild(buildMappingGroup('Cuenta de Cobro', ccNames, ccColumns, 'cc'));
+    listaEl.appendChild(buildMappingGroup('Descuentos', descNames, descColumns, 'desc'));
 
     conceptosSection.removeAttribute('hidden');
+  }
+
+  function collectMapping(groupKey) {
+    var mapping = {};
+    var selects = document.querySelectorAll('[data-mapeo-group="' + groupKey + '"]');
+    for (var i = 0; i < selects.length; i++) {
+      var concepto = selects[i].dataset.mapeoConcepto;
+      var colName = selects[i].value;
+      if (colName) mapping[concepto] = colName;
+    }
+    return mapping;
   }
 
   function validateCrossConfig() {
@@ -930,37 +985,45 @@ const App = (() => {
     state.crossConfig = null;
 
     var rolSelects = document.querySelectorAll('[data-config-type="rol"]');
-    var ccCount = 0;
-    var descCount = 0;
+    var ccNames = [];
+    var descNames = [];
     var maestroCount = 0;
-    var ccName = null;
-    var descName = null;
     var maestroName = null;
 
     for (var i = 0; i < rolSelects.length; i++) {
-      if (rolSelects[i].value === 'cuenta_cobro') { ccCount++; ccName = rolSelects[i].dataset.filename; }
-      if (rolSelects[i].value === 'descuentos') { descCount++; descName = rolSelects[i].dataset.filename; }
+      if (rolSelects[i].value === 'cuenta_cobro') ccNames.push(rolSelects[i].dataset.filename);
+      if (rolSelects[i].value === 'descuentos') descNames.push(rolSelects[i].dataset.filename);
       if (rolSelects[i].value === 'maestro') { maestroCount++; maestroName = rolSelects[i].dataset.filename; }
     }
 
     var errors = [];
-    if (ccCount === 0) errors.push('Asigna un archivo como Cuenta de cobro');
-    if (ccCount > 1) errors.push('Solo un archivo puede ser Cuenta de cobro');
-    if (descCount === 0) errors.push('Asigna un archivo como Descuentos');
-    if (descCount > 1) errors.push('Solo un archivo puede ser Descuentos');
+    if (ccNames.length === 0) errors.push('Asigna un archivo como Cuenta de cobro');
+    if (ccNames.length > 1) {
+      var allTxt = true;
+      for (var t = 0; t < ccNames.length; t++) {
+        var fileInfo = state.files.get(ccNames[t]);
+        if (!fileInfo || fileInfo.type !== 'txt') { allTxt = false; break; }
+      }
+      if (!allTxt) errors.push('Solo archivos TXT pueden asignarse como multiples Cuentas de cobro');
+    }
+    if (descNames.length === 0) errors.push('Asigna un archivo como Descuentos');
+    if (descNames.length > 1) errors.push('Solo un archivo puede ser Descuentos');
     if (maestroCount > 1) errors.push('Solo un archivo puede ser Maestro');
 
     var ccLlave = '';
     var descLlave = '';
     var maestroLlave = '';
+    var descName = descNames.length > 0 ? descNames[0] : null;
+    var ccFirstName = ccNames.length > 0 ? ccNames[0] : null;
+
     var llaveSelects = document.querySelectorAll('[data-config-type="llave"]');
     for (var j = 0; j < llaveSelects.length; j++) {
-      if (llaveSelects[j].dataset.filename === ccName) ccLlave = llaveSelects[j].value;
+      if (llaveSelects[j].dataset.filename === ccFirstName && !ccLlave) ccLlave = llaveSelects[j].value;
       if (llaveSelects[j].dataset.filename === descName) descLlave = llaveSelects[j].value;
       if (llaveSelects[j].dataset.filename === maestroName) maestroLlave = llaveSelects[j].value;
     }
 
-    if (ccName && !ccLlave) errors.push('Selecciona llave para Cuenta de cobro');
+    if (ccNames.length > 0 && !ccLlave) errors.push('Selecciona llave para Cuenta de cobro');
     if (descName && !descLlave) errors.push('Selecciona llave para Descuentos');
     if (maestroName && !maestroLlave) errors.push('Selecciona llave para Maestro');
 
@@ -978,13 +1041,17 @@ const App = (() => {
       if (!fechaRetiro) errors.push('Selecciona columna de fecha retiro para Maestro');
     }
 
+    var ccMapping = collectMapping('cc');
+    var descMapping = collectMapping('desc');
+
     var conceptos = [];
-    var cbList = document.querySelectorAll('[data-config-type="concepto"]:checked');
-    for (var k = 0; k < cbList.length; k++) {
-      conceptos.push(cbList[k].value);
+    for (var c = 0; c < CONCEPTOS_FIJOS.length; c++) {
+      var con = CONCEPTOS_FIJOS[c];
+      if (ccMapping[con] && descMapping[con]) conceptos.push(con);
     }
-    if (ccCount === 1 && descCount === 1 && conceptos.length === 0) {
-      errors.push('Selecciona al menos una columna de concepto');
+
+    if (ccNames.length > 0 && descName && conceptos.length === 0) {
+      errors.push('Mapea al menos un concepto en ambos archivos (CC y Desc)');
     }
 
     if (validacionEl) {
@@ -993,14 +1060,14 @@ const App = (() => {
         validacionEl.textContent = errors[0];
       } else {
         validacionEl.className = 'config-cruce__validacion config-cruce__validacion--ok';
-        validacionEl.textContent = 'Configuracion lista';
+        validacionEl.textContent = 'Configuracion lista — ' + conceptos.length + ' concepto(s) mapeados';
       }
     }
 
     if (errors.length === 0) {
       state.crossConfig = {
-        cc: { name: ccName, llave: ccLlave },
-        desc: { name: descName, llave: descLlave },
+        cc: { names: ccNames, llave: ccLlave, mapping: ccMapping },
+        desc: { name: descName, llave: descLlave, mapping: descMapping },
         maestro: maestroName ? {
           name: maestroName,
           llave: maestroLlave,
@@ -1217,6 +1284,37 @@ const App = (() => {
           th._excSortBound = true;
         }
       })(ths[i]);
+    }
+    initAyudaPopovers();
+  }
+
+  function initAyudaPopovers() {
+    var ayudas = document.querySelectorAll('#etapa-3 .th-ayuda');
+    for (var i = 0; i < ayudas.length; i++) {
+      (function (el) {
+        if (el._ayudaBound) return;
+        el.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var wasOpen = el.classList.contains('th-ayuda--open');
+          closeAllAyudas();
+          if (!wasOpen) el.classList.add('th-ayuda--open');
+        });
+        el._ayudaBound = true;
+      })(ayudas[i]);
+    }
+
+    if (!document._ayudaDocBound) {
+      document.addEventListener('click', function () {
+        closeAllAyudas();
+      });
+      document._ayudaDocBound = true;
+    }
+  }
+
+  function closeAllAyudas() {
+    var open = document.querySelectorAll('.th-ayuda--open');
+    for (var i = 0; i < open.length; i++) {
+      open[i].classList.remove('th-ayuda--open');
     }
   }
 

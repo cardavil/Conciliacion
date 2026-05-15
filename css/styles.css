@@ -438,9 +438,40 @@ body {
   color: var(--text-muted);
   background: var(--surface-border);
   border-radius: 50%;
-  cursor: help;
+  cursor: pointer;
   vertical-align: middle;
   margin-left: 2px;
+  position: relative;
+}
+
+.th-ayuda:hover {
+  background: var(--text-muted);
+  color: #fff;
+}
+
+.th-ayuda__pop {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 180px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-primary);
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm, 4px);
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  white-space: normal;
+  z-index: 10;
+}
+
+.th-ayuda--open .th-ayuda__pop {
+  display: block;
 }
 
 /* Badges de tipo de excepcion */
@@ -1145,26 +1176,51 @@ body {
 
 .config-cruce__conceptos-lista {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
+  flex-direction: column;
+  gap: var(--space-md);
   margin-top: var(--space-xs);
 }
 
-.config-cruce__checkbox-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
+.config-mapeo__grupo {
   background: var(--surface-page);
   border: 1px solid var(--surface-border);
-  border-radius: var(--radius-sm);
-  font-size: 0.8125rem;
-  font-family: var(--font-mono);
-  cursor: pointer;
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
 }
 
-.config-cruce__checkbox-item:hover {
-  border-color: var(--info);
+.config-mapeo__grupo-header {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--space-sm);
+}
+
+.config-mapeo__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: 4px;
+}
+
+.config-mapeo__label {
+  min-width: 140px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.config-mapeo__sep-opc {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: var(--space-sm);
+  margin-bottom: 4px;
+  padding-top: var(--space-xs);
+  border-top: 1px solid var(--surface-border);
 }
 
 .config-cruce__validacion {

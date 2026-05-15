@@ -383,25 +383,37 @@ const PyBridge = (() => {
      ETAPA 3: CONCILIACION
      ============================================ */
 
+  function buildRenameDict(mapping) {
+    var rename = {};
+    var keys = Object.keys(mapping);
+    for (var i = 0; i < keys.length; i++) {
+      var concepto = keys[i];
+      var colName = mapping[concepto];
+      if (colName !== concepto) rename[colName] = concepto;
+    }
+    return rename;
+  }
+
   async function conciliate(config) {
     var selectDecimal = document.getElementById('select-decimal');
     var decSep = selectDecimal ? selectDecimal.value : ',';
 
     var edaResults = App.getEdaResults();
 
-    function extractInvalids(fileName) {
+    function extractInvalids(fileName, mapping) {
       var inv = {};
       var eda = edaResults[fileName];
       if (!eda || !eda.datos) return inv;
       var perfil = eda.datos.perfil_columnas || [];
-      for (var i = 0; i < config.conceptos.length; i++) {
-        var col = config.conceptos[i];
+      var conceptos = Object.keys(mapping);
+      for (var i = 0; i < conceptos.length; i++) {
+        var originalCol = mapping[conceptos[i]];
         for (var p = 0; p < perfil.length; p++) {
-          if (perfil[p].nombre === col && perfil[p].invalidos > 0) {
+          if (perfil[p].nombre === originalCol && perfil[p].invalidos > 0) {
             var det = perfil[p].detalle_invalidos || [];
-            inv[col] = [];
+            inv[conceptos[i]] = [];
             for (var d = 0; d < det.length; d++) {
-              inv[col].push(det[d].fila);
+              inv[conceptos[i]].push(det[d].fila);
             }
             break;
           }
@@ -410,12 +422,43 @@ const PyBridge = (() => {
       return inv;
     }
 
-    var ccInv = extractInvalids(config.cc.name);
-    var descInv = extractInvalids(config.desc.name);
+    var ccNames = config.cc.names || [config.cc.name];
+    var isMultiCC = ccNames.length > 1;
+
+    var ccInv = isMultiCC ? {} : extractInvalids(ccNames[0], config.cc.mapping);
+    var descInv = extractInvalids(config.desc.name, config.desc.mapping);
+
+    var ccRename = buildRenameDict(config.cc.mapping);
+    var descRename = buildRenameDict(config.desc.mapping);
 
     var pyCode = '';
-    pyCode += '_con_cc = leer_archivo("/uploads/' + escapePyString(config.cc.name) + '")\n';
+    pyCode += 'import pandas as _pd\n';
+
+    if (isMultiCC) {
+      pyCode += '_con_cc_parts = []\n';
+      for (var f = 0; f < ccNames.length; f++) {
+        pyCode += '_con_cc_parts.append(leer_archivo("/uploads/' + escapePyString(ccNames[f]) + '"))\n';
+      }
+      pyCode += '_con_cc = _pd.concat(_con_cc_parts, ignore_index=True)\n';
+    } else {
+      pyCode += '_con_cc = leer_archivo("/uploads/' + escapePyString(ccNames[0]) + '")\n';
+    }
+
     pyCode += '_con_desc = leer_archivo("/uploads/' + escapePyString(config.desc.name) + '")\n';
+
+    if (Object.keys(ccRename).length > 0) {
+      pyCode += '_con_cc = _con_cc.rename(columns=' + JSON.stringify(ccRename) + ')\n';
+    }
+    if (Object.keys(descRename).length > 0) {
+      pyCode += '_con_desc = _con_desc.rename(columns=' + JSON.stringify(descRename) + ')\n';
+    }
+
+    if (config.desc.llave && config.desc.llave !== config.cc.llave) {
+      pyCode += '_con_desc = _con_desc.rename(columns={"' +
+        escapePyString(config.desc.llave) + '": "' +
+        escapePyString(config.cc.llave) + '"})\n';
+    }
+
     pyCode += '_con_llave = "' + escapePyString(config.cc.llave) + '"\n';
     pyCode += '_con_conceptos = ' + JSON.stringify(config.conceptos) + '\n';
     pyCode += '_con_decimal_sep = "' + escapePyString(decSep) + '"\n';
