@@ -22,7 +22,9 @@ const App = (() => {
     inputDirHandle: null,
     outputDirHandle: null,
     crossConfig: null,
-    conciliationResult: null
+    conciliationResult: null,
+    excData: [],
+    excSort: { col: null, asc: true }
   };
 
   /* ============================================
@@ -1064,29 +1066,10 @@ const App = (() => {
     }
 
     // Cola de excepciones
-    var tbody = $('#excepciones-body');
-    if (tbody) {
-      tbody.innerHTML = '';
-      var excs = results.excepciones || [];
-      for (var i = 0; i < excs.length; i++) {
-        var exc = excs[i];
-        var tr = document.createElement('tr');
-
-        var fields = ['llave', 'concepto', 'esperado', 'real', 'diferencia'];
-        for (var f = 0; f < fields.length; f++) {
-          var td = document.createElement('td');
-          td.textContent = exc[fields[f]] != null ? exc[fields[f]] : '';
-          tr.appendChild(td);
-        }
-
-        var tdAccion = document.createElement('td');
-        tdAccion.className = 'excepcion-acciones';
-        renderActionButtons(tdAccion, exc.llave, 'conciliacion');
-        tr.appendChild(tdAccion);
-
-        tbody.appendChild(tr);
-      }
-    }
+    state.excData = results.excepciones || [];
+    state.excSort = { col: null, asc: true };
+    initExcSort();
+    renderExcepcionesBody(state.excData);
 
     // Novedades
     var novedadesEl = $('#novedades-lista');
@@ -1124,6 +1107,117 @@ const App = (() => {
     if (results.noMaestro > 0) logMsg += ', ' + results.noMaestro + ' no maestro';
     if (results.sinActividad > 0) logMsg += ', ' + results.sinActividad + ' sin actividad';
     addLog('info', logMsg);
+  }
+
+  /* ============================================
+     EXCEPCIONES: RENDER + SORTING
+     ============================================ */
+
+  var TIPO_LABELS = {
+    'OK': 'Ok',
+    'EXCEDENTE': 'Excedente',
+    'FALTANTE': 'Faltante',
+    'SIN_MATCH': 'Sin Match',
+    'NO_MAESTRO': 'No Maestro',
+    'SIN_ACTIVIDAD': 'Sin Actividad',
+    'ERROR': 'Error',
+    'DATA_QUALITY': 'Calidad'
+  };
+
+  function renderTipoBadge(tipo) {
+    var span = document.createElement('span');
+    var cls = (tipo || '').toLowerCase().replace(/ /g, '_');
+    span.className = 'badge-tipo badge-tipo--' + cls;
+    span.textContent = TIPO_LABELS[tipo] || tipo || '';
+    return span;
+  }
+
+  function renderExcepcionesBody(excs) {
+    var tbody = $('#excepciones-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    for (var i = 0; i < excs.length; i++) {
+      var exc = excs[i];
+      var tr = document.createElement('tr');
+
+      var tdLlave = document.createElement('td');
+      tdLlave.textContent = exc.llave != null ? exc.llave : '';
+      tr.appendChild(tdLlave);
+
+      var tdTipo = document.createElement('td');
+      tdTipo.appendChild(renderTipoBadge(exc.tipo));
+      tr.appendChild(tdTipo);
+
+      var textFields = ['concepto', 'esperado', 'real', 'diferencia'];
+      for (var f = 0; f < textFields.length; f++) {
+        var td = document.createElement('td');
+        td.textContent = exc[textFields[f]] != null ? exc[textFields[f]] : '';
+        tr.appendChild(td);
+      }
+
+      var tdAccion = document.createElement('td');
+      tdAccion.className = 'excepcion-acciones';
+      renderActionButtons(tdAccion, exc.llave, 'conciliacion');
+      tr.appendChild(tdAccion);
+
+      tbody.appendChild(tr);
+    }
+  }
+
+  function sortExcepciones(col) {
+    if (state.excSort.col === col) {
+      state.excSort.asc = !state.excSort.asc;
+    } else {
+      state.excSort.col = col;
+      state.excSort.asc = true;
+    }
+
+    var sorted = state.excData.slice();
+    var asc = state.excSort.asc;
+
+    sorted.sort(function (a, b) {
+      var va = a[col] != null ? String(a[col]) : '';
+      var vb = b[col] != null ? String(b[col]) : '';
+      var na = parseFloat(va);
+      var nb = parseFloat(vb);
+
+      var cmp;
+      if (!isNaN(na) && !isNaN(nb)) {
+        cmp = na - nb;
+      } else {
+        cmp = va.localeCompare(vb, 'es');
+      }
+      return asc ? cmp : -cmp;
+    });
+
+    updateSortIndicators(col, asc);
+    renderExcepcionesBody(sorted);
+  }
+
+  function updateSortIndicators(activeCol, asc) {
+    var ths = document.querySelectorAll('#etapa-3 .tabla thead th[data-col]');
+    for (var i = 0; i < ths.length; i++) {
+      ths[i].classList.remove('th-sorted-asc', 'th-sorted-desc');
+      if (ths[i].getAttribute('data-col') === activeCol) {
+        ths[i].classList.add(asc ? 'th-sorted-asc' : 'th-sorted-desc');
+      }
+    }
+  }
+
+  function initExcSort() {
+    var ths = document.querySelectorAll('#etapa-3 .tabla thead th[data-col]');
+    for (var i = 0; i < ths.length; i++) {
+      ths[i].classList.remove('th-sorted-asc', 'th-sorted-desc');
+      (function (th) {
+        if (!th._excSortBound) {
+          th.addEventListener('click', function () {
+            sortExcepciones(th.getAttribute('data-col'));
+          });
+          th._excSortBound = true;
+        }
+      })(ths[i]);
+    }
   }
 
   /* ============================================
