@@ -713,12 +713,20 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
     cc[llave] = cc[llave].astype(str).str.strip()
     desc[llave] = desc[llave].astype(str).str.strip()
 
-    # Convertir columnas de concepto a numerico
+    # Convertir columnas de concepto a numerico, detectando invalidos
+    cc_invalidos = {}
+    desc_invalidos = {}
     for col in conceptos:
         if col in cc.columns:
-            cc[col] = pd.to_numeric(cc[col], errors="coerce").fillna(0)
+            raw = cc[col].astype(str).str.strip()
+            convertido = pd.to_numeric(cc[col], errors="coerce")
+            cc_invalidos[col] = convertido.isna() & raw.ne("")
+            cc[col] = convertido.fillna(0)
         if col in desc.columns:
-            desc[col] = pd.to_numeric(desc[col], errors="coerce").fillna(0)
+            raw = desc[col].astype(str).str.strip()
+            convertido = pd.to_numeric(desc[col], errors="coerce")
+            desc_invalidos[col] = convertido.isna() & raw.ne("")
+            desc[col] = convertido.fillna(0)
 
     llaves_cc = set(cc[llave].unique())
     llaves_desc = set(desc[llave].unique())
@@ -759,6 +767,34 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
         fila_desc_first = fila_desc.iloc[0]
 
         for concepto in conceptos:
+            fila_cc_idx = fila_cc.index[0]
+            fila_desc_idx = fila_desc.index[0]
+
+            inv_cc = concepto in cc_invalidos and bool(cc_invalidos[concepto].loc[fila_cc_idx])
+            inv_desc = concepto in desc_invalidos and bool(desc_invalidos[concepto].loc[fila_desc_idx])
+
+            if inv_cc or inv_desc:
+                conteo["error"] += 1
+                val_orig_cc = str(cuenta_cobro[concepto].loc[fila_cc_idx]) if concepto in cuenta_cobro.columns else ""
+                val_orig_desc = str(descuentos[concepto].loc[fila_desc_idx]) if concepto in descuentos.columns else ""
+                excepciones.append({
+                    "llave": llave_val,
+                    "concepto": concepto,
+                    "esperado": val_orig_cc,
+                    "real": val_orig_desc,
+                    "diferencia": "DATO INVALIDO",
+                    "tipo": "ERROR",
+                })
+                resultados.append({
+                    "llave": llave_val,
+                    "concepto": concepto,
+                    "esperado": val_orig_cc,
+                    "real": val_orig_desc,
+                    "diferencia": 0,
+                    "estado": "ERROR",
+                })
+                continue
+
             val_esperado = 0
             val_real = 0
 

@@ -664,6 +664,9 @@ const App = (() => {
       renderCrossConfig(edaResults);
     }
 
+    var reanalizar = document.getElementById('eda-reanalizar');
+    if (reanalizar) reanalizar.removeAttribute('hidden');
+
     addLog('ok', fileNames.length + ' archivo(s) analizado(s)');
   }
 
@@ -1199,7 +1202,7 @@ const App = (() => {
     btnRow.className = 'accion-form__buttons';
 
     var btnConfirm = document.createElement('button');
-    btnConfirm.className = 'boton boton--accion';
+    btnConfirm.className = 'boton boton--accion accion-form__btn-confirmar';
     btnConfirm.textContent = 'Confirmar';
     btnConfirm.addEventListener('click', function () {
       var comment = commentInput.value.trim();
@@ -1230,7 +1233,7 @@ const App = (() => {
     });
 
     var btnCancel = document.createElement('button');
-    btnCancel.className = 'boton boton--accion';
+    btnCancel.className = 'boton boton--accion accion-form__btn-cancelar';
     btnCancel.textContent = 'Cancelar';
     btnCancel.addEventListener('click', function () {
       container.innerHTML = '';
@@ -1470,6 +1473,37 @@ const App = (() => {
     });
   }
 
+  function initReanalyzeButton() {
+    var btn = document.getElementById('btn-reanalizar');
+    if (!btn) return;
+
+    btn.addEventListener('click', function () {
+      setStageState(3, 'locked');
+      setStageState(4, 'locked');
+      setStageState(5, 'locked');
+
+      state.crossConfig = null;
+      state.conciliationResult = null;
+      state.auditTrail = [];
+
+      var configCruce = document.getElementById('config-cruce');
+      if (configCruce) configCruce.setAttribute('hidden', '');
+
+      var btnContinuar = document.querySelector('#etapa-2 .boton--primario');
+      if (btnContinuar) btnContinuar.disabled = true;
+
+      addLog('info', 'Re-analizando archivos...');
+
+      if (state.inputDirHandle) {
+        readInputDirectory(state.inputDirHandle).then(function () {
+          runEDA();
+        });
+      } else {
+        runEDA();
+      }
+    });
+  }
+
   /* ============================================
      EDA: ANALISIS DE CALIDAD POR ARCHIVO
      ============================================ */
@@ -1486,6 +1520,9 @@ const App = (() => {
         return;
       }
     }
+
+    var reanalizar = document.getElementById('eda-reanalizar');
+    if (reanalizar) reanalizar.setAttribute('hidden', '');
 
     var filesMap = state.files;
     if (filesMap.size === 0) return;
@@ -1642,6 +1679,7 @@ const App = (() => {
     initDirectoryPickers();
     initAdvanceButtons();
     initRefreshButton();
+    initReanalyzeButton();
     initSeparadorConfig();
 
     addLog('info', 'Esperando archivos...');

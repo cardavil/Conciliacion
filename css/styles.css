@@ -491,17 +491,20 @@ body {
 
 /* --- Accion (para acciones inline en tablas) --- */
 .boton--accion {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  background: transparent;
+  color: var(--text);
+  background: var(--surface-card);
+  cursor: pointer;
 }
 
 .boton--accion:hover {
-  background: var(--surface-page);
-  color: var(--text);
+  border-color: var(--info);
+  background: var(--info-bg);
+  color: var(--info);
 }
 
 /* ============================================
@@ -793,13 +796,17 @@ body {
 .accion-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  min-width: 160px;
+  gap: var(--space-sm);
+  min-width: 220px;
+  padding: var(--space-sm);
+  background: var(--surface-page);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
 }
 
 .accion-form__input {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8125rem;
   font-family: var(--font-mono);
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-sm);
@@ -819,7 +826,23 @@ body {
 
 .accion-form__buttons {
   display: flex;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
+}
+
+.accion-form__btn-confirmar {
+  background: var(--ok-bg);
+  color: var(--ok);
+  border-color: var(--ok-border);
+  font-weight: 600;
+}
+
+.accion-form__btn-confirmar:hover {
+  background: var(--ok);
+  color: #fff;
+}
+
+.accion-form__btn-cancelar {
+  color: var(--text-muted);
 }
 
 /* ============================================
