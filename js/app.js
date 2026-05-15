@@ -985,20 +985,25 @@ const App = (() => {
     var sm = $('#metrica-sin-match');
     var d = $('#metrica-duplicados');
     var c = $('#metrica-cobertura');
+    var inv = $('#metrica-invalidos');
 
     if (m) m.textContent = results.match != null ? results.match : 0;
     if (sm) sm.textContent = results.sinMatch != null ? results.sinMatch : 0;
     if (d) d.textContent = results.duplicados != null ? results.duplicados : 0;
     if (c) c.textContent = (results.cobertura != null ? results.cobertura : 0) + '%';
+    if (inv) inv.textContent = results.invalidos != null ? results.invalidos : 0;
 
-    // Tabla de sin match
+    // Tabla: sin match + invalidos
     var tbody = $('#sin-match-body');
     if (tbody) {
       tbody.innerHTML = '';
-      var items = results.detalles || [];
-      for (var i = 0; i < items.length; i++) {
-        var item = items[i];
+      var allItems = (results.detalles || []).concat(results.invalidosDetalle || []);
+      for (var i = 0; i < allItems.length; i++) {
+        var item = allItems[i];
         var tr = document.createElement('tr');
+        if (item.tipo === 'dato_invalido') {
+          tr.className = 'fila-invalido';
+        }
 
         var tdLlave = document.createElement('td');
         tdLlave.textContent = item.llave;
@@ -1011,7 +1016,7 @@ const App = (() => {
 
         var tdAccion = document.createElement('td');
         tdAccion.className = 'excepcion-acciones';
-        renderActionButtons(tdAccion, item.llave, 'cruce');
+        renderActionButtons(tdAccion, item.llave + (item.tipo === 'dato_invalido' ? ':inv' : ''), 'cruce');
 
         tr.appendChild(tdLlave);
         tr.appendChild(tdPresente);
@@ -1021,14 +1026,15 @@ const App = (() => {
       }
     }
 
-    // Boton de avance: solo bloquear por errores reales, no por sin-match
     var btn = $('#etapa-3 .boton--primario');
     if (btn) {
       var coberturaError = results.cobertura != null && results.cobertura < 50;
       btn.disabled = coberturaError;
     }
 
-    addLog('info', 'Cruce: ' + (results.match || 0) + ' coincidencias, ' + (results.sinMatch || 0) + ' sin match');
+    addLog('info', 'Cruce: ' + (results.match || 0) + ' coincidencias, ' +
+      (results.sinMatch || 0) + ' sin match, ' +
+      (results.invalidos || 0) + ' invalido(s)');
   }
 
   /* ============================================
@@ -1175,35 +1181,47 @@ const App = (() => {
   }
 
   function showActionForm(container, key, action, context) {
-    container.innerHTML = '';
+    var overlay = document.createElement('div');
+    overlay.className = 'accion-overlay';
 
-    var form = document.createElement('div');
-    form.className = 'accion-form';
+    var panel = document.createElement('div');
+    panel.className = 'accion-panel';
 
-    // Input de valor nuevo (solo para corregir)
+    var titulo = document.createElement('h4');
+    titulo.className = 'accion-panel__titulo';
+    titulo.textContent = action.charAt(0).toUpperCase() + action.slice(1) + ' — ' + key;
+    panel.appendChild(titulo);
+
     var valueInput = null;
     if (action === 'corregir') {
       valueInput = document.createElement('input');
       valueInput.type = 'text';
       valueInput.className = 'accion-form__input';
       valueInput.placeholder = 'Nuevo valor';
-      form.appendChild(valueInput);
+      panel.appendChild(valueInput);
     }
 
-    // Input de comentario (obligatorio siempre)
     var commentInput = document.createElement('input');
     commentInput.type = 'text';
     commentInput.className = 'accion-form__input';
     commentInput.placeholder = 'Comentario obligatorio';
-    form.appendChild(commentInput);
+    panel.appendChild(commentInput);
 
-    // Fila de botones
     var btnRow = document.createElement('div');
     btnRow.className = 'accion-form__buttons';
 
     var btnConfirm = document.createElement('button');
     btnConfirm.className = 'boton boton--accion accion-form__btn-confirmar';
     btnConfirm.textContent = 'Confirmar';
+
+    var btnCancel = document.createElement('button');
+    btnCancel.className = 'boton boton--accion accion-form__btn-cancelar';
+    btnCancel.textContent = 'Cancelar';
+
+    function closePanel() {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+
     btnConfirm.addEventListener('click', function () {
       var comment = commentInput.value.trim();
       if (!comment) {
@@ -1221,29 +1239,27 @@ const App = (() => {
         newValue: valueInput ? valueInput.value.trim() : null
       });
 
-      // Reemplazar celda con badge de resultado
       container.innerHTML = '';
       var badge = document.createElement('span');
       badge.className = 'badge badge--' + (action === 'excluir' ? 'locked' : 'ok');
       badge.textContent = action.charAt(0).toUpperCase() + action.slice(1);
       container.appendChild(badge);
 
+      closePanel();
       addLog('ok', key + ': ' + action + ' — ' + comment);
       checkAllExceptionsResolved(context);
     });
 
-    var btnCancel = document.createElement('button');
-    btnCancel.className = 'boton boton--accion accion-form__btn-cancelar';
-    btnCancel.textContent = 'Cancelar';
-    btnCancel.addEventListener('click', function () {
-      container.innerHTML = '';
-      renderActionButtons(container, key, context);
+    btnCancel.addEventListener('click', closePanel);
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closePanel();
     });
 
     btnRow.appendChild(btnConfirm);
     btnRow.appendChild(btnCancel);
-    form.appendChild(btnRow);
-    container.appendChild(form);
+    panel.appendChild(btnRow);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
 
     (valueInput || commentInput).focus();
   }
@@ -1558,6 +1574,9 @@ const App = (() => {
       return;
     }
 
+    var selectDecimal = document.getElementById('select-decimal');
+    config.decimalSep = selectDecimal ? selectDecimal.value : ',';
+
     addLog('info', 'Ejecutando validacion cruzada...');
 
     try {
@@ -1568,11 +1587,21 @@ const App = (() => {
         sinMatch: datos.sin_match || 0,
         duplicados: datos.duplicados || 0,
         cobertura: datos.cobertura || 0,
+        invalidos: (datos.invalidos || []).length,
         detalles: (datos.detalles || []).map(function (d) {
           return {
             llave: d.llave,
             presenteEn: d.presente_en,
-            monto: d.monto || ''
+            monto: d.monto || '',
+            tipo: 'sin_match'
+          };
+        }),
+        invalidosDetalle: (datos.invalidos || []).map(function (d) {
+          return {
+            llave: d.llave,
+            presenteEn: d.presente_en,
+            monto: d.ausente_en || '',
+            tipo: 'dato_invalido'
           };
         })
       };

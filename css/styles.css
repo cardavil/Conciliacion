@@ -395,6 +395,14 @@ body {
   background: var(--surface-page);
 }
 
+.tabla tbody tr.fila-invalido {
+  background: var(--error-bg);
+}
+
+.tabla tbody tr.fila-invalido:hover {
+  background: var(--warn-bg);
+}
+
 /* ============================================
    ALERTA
    ============================================ */
@@ -793,15 +801,35 @@ body {
   align-items: center;
 }
 
-.accion-form {
+/* Panel flotante de acciones (overlay + dialog) */
+.accion-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.accion-panel {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg, 0.75rem);
+  padding: var(--space-md);
+  min-width: 320px;
+  max-width: 420px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  min-width: 220px;
-  padding: var(--space-sm);
-  background: var(--surface-page);
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-md);
+}
+
+.accion-panel__titulo {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
 }
 
 .accion-form__input {

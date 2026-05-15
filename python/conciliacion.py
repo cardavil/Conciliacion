@@ -578,11 +578,11 @@ def validar_fuente(nombre, ruta, perfil=None, decimal_sep=","):
 # ETAPA 3 — VALIDACION CRUZADA
 # ============================================
 
-def validar_cruzado(fuentes):
+def validar_cruzado(fuentes, conceptos=None, decimal_sep=","):
     """
     Recibe dict de {nombre: {"df": DataFrame, "llave": str}}.
     Cruza llaves entre fuentes para detectar registros sin match,
-    duplicados cruzados e inconsistencias.
+    duplicados cruzados, inconsistencias y datos invalidos en conceptos.
     Retorna: metricas, registros sin match, estado.
     """
     mensajes = []
@@ -657,12 +657,41 @@ def validar_cruzado(fuentes):
                     nombre, n_dup
                 )))
 
+    invalidos_detalles = []
+    if conceptos:
+        for nombre in nombres:
+            info = fuentes[nombre]
+            df = info["df"]
+            llave_col = info.get("llave")
+            if not llave_col or llave_col not in df.columns:
+                continue
+            for col in conceptos:
+                if col not in df.columns:
+                    continue
+                for idx, val in df[col].items():
+                    s = str(val).strip()
+                    if s == "":
+                        continue
+                    if not _es_numero_valido(s, decimal_sep):
+                        llave_val = str(df.at[idx, llave_col]).strip()
+                        invalidos_detalles.append({
+                            "llave": llave_val,
+                            "presente_en": nombre,
+                            "ausente_en": "columna: {} = {}".format(col, s),
+                            "monto": "",
+                            "tipo": "dato_invalido",
+                        })
+        if invalidos_detalles:
+            mensajes.append(_msg("warn", "{} valor(es) invalido(s) en columnas de concepto".format(
+                len(invalidos_detalles)
+            )))
+
     n_match = len(comun)
     n_sin_match = len(todas_llaves) - n_match
     cobertura = round(n_match / len(todas_llaves) * 100, 1) if todas_llaves else 0
 
     estado = "ok"
-    if n_sin_match > 0:
+    if n_sin_match > 0 or invalidos_detalles:
         estado = "warn"
     if cobertura < 50:
         estado = "error"
@@ -678,6 +707,7 @@ def validar_cruzado(fuentes):
         "duplicados": n_duplicados,
         "cobertura": cobertura,
         "detalles": sin_match_detalles,
+        "invalidos": invalidos_detalles,
     }
 
     return _respuesta(estado, mensajes, datos)
