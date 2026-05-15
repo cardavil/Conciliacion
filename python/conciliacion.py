@@ -674,169 +674,327 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
 
     llaves_cc = set(cc[llave].unique())
     llaves_desc = set(desc[llave].unique())
-    todas = llaves_cc | llaves_desc
+    llaves_cc.discard("")
+    llaves_desc.discard("")
 
-    # Validar maestro como fuente de verdad
-    llaves_maestro = set()
+    conteo = {"ok": 0, "excedente": 0, "faltante": 0, "sin_match": 0,
+              "error": 0, "no_maestro": 0, "sin_actividad": 0}
+
     if maestro is not None and maestro_cfg is not None:
+        # ── MAESTRO ES FUENTE DE VERDAD ──
         m_pre = maestro.copy()
         col_llave_m = maestro_cfg.get("llave", llave)
-        if col_llave_m in m_pre.columns:
-            m_pre[col_llave_m] = m_pre[col_llave_m].astype(str).str.strip()
 
-            vacias_m = m_pre[m_pre[col_llave_m] == ""]
-            if len(vacias_m) > 0:
-                mensajes.append(_msg("warn",
-                    "Maestro: {} fila(s) con llave vacia".format(len(vacias_m))))
-                for idx in vacias_m.index[:10]:
-                    excepciones.append({
-                        "llave": "(vacia fila {})".format(int(idx) + 2),
-                        "concepto": "(maestro)",
-                        "esperado": "llave valida",
-                        "real": "vacio",
-                        "diferencia": "DATA_QUALITY",
-                        "tipo": "DATA_QUALITY",
-                    })
+        if col_llave_m not in m_pre.columns:
+            mensajes.append(_msg("error",
+                "Llave '{}' no encontrada en maestro".format(col_llave_m)))
+            return _respuesta("error", mensajes)
 
-            llaves_maestro = set(m_pre[m_pre[col_llave_m] != ""][col_llave_m].unique())
+        m_pre[col_llave_m] = m_pre[col_llave_m].astype(str).str.strip()
 
-            sin_maestro = (llaves_cc | llaves_desc) - llaves_maestro
-            for lv in sorted(sin_maestro):
+        # Calidad: llaves vacias en maestro
+        vacias_m = m_pre[m_pre[col_llave_m] == ""]
+        if len(vacias_m) > 0:
+            mensajes.append(_msg("warn",
+                "Maestro: {} fila(s) con llave vacia".format(len(vacias_m))))
+            for idx in vacias_m.index[:10]:
                 excepciones.append({
-                    "llave": lv,
+                    "llave": "(vacia fila {})".format(int(idx) + 2),
                     "concepto": "(maestro)",
-                    "esperado": "presente en maestro",
-                    "real": "no encontrada",
+                    "esperado": "llave valida",
+                    "real": "vacio",
                     "diferencia": "DATA_QUALITY",
                     "tipo": "DATA_QUALITY",
                 })
-            if sin_maestro:
+
+        llaves_maestro = set(m_pre[m_pre[col_llave_m] != ""][col_llave_m].unique())
+
+        # Calidad: llaves duplicadas en maestro
+        m_validas = m_pre[m_pre[col_llave_m] != ""]
+        n_dup_maestro = int(m_validas[col_llave_m].duplicated().sum())
+        if n_dup_maestro > 0:
+            mensajes.append(_msg("warn",
+                "Maestro: {} llaves duplicadas".format(n_dup_maestro)))
+
+        # Duplicados en CC y Desc
+        n_duplicados = n_dup_maestro
+        for nombre_src, df_src in [("CC", cc), ("Desc", desc)]:
+            vals = df_src[llave][df_src[llave].str.strip() != ""]
+            n_dup = int(vals.duplicated().sum())
+            n_duplicados += n_dup
+            if n_dup > 0:
                 mensajes.append(_msg("warn",
-                    "{} llave(s) en CC/Desc no encontrada(s) en maestro".format(len(sin_maestro))))
+                    "{}: {} llaves duplicadas".format(nombre_src, n_dup)))
 
-            solo_maestro = llaves_maestro - (llaves_cc | llaves_desc)
-            if solo_maestro:
-                mensajes.append(_msg("info",
-                    "{} llave(s) en maestro sin actividad en CC ni Desc".format(len(solo_maestro))))
+        # Metricas de cruce (basadas en maestro)
+        n_match = len(llaves_maestro & llaves_cc & llaves_desc)
+        cobertura = round(n_match / len(llaves_maestro) * 100, 1) if llaves_maestro else 0
 
-    n_match = len(llaves_cc & llaves_desc)
-    cobertura = round(n_match / len(todas) * 100, 1) if todas else 0
-
-    n_duplicados = 0
-    for nombre_src, df_src in [("CC", cc), ("Desc", desc)]:
-        vals = df_src[llave][df_src[llave].str.strip() != ""]
-        n_dup = int(vals.duplicated().sum())
-        n_duplicados += n_dup
-        if n_dup > 0:
-            mensajes.append(_msg("warn", "{}: {} llaves duplicadas".format(nombre_src, n_dup)))
-
-    conteo = {"ok": 0, "excedente": 0, "faltante": 0, "sin_match": 0, "error": 0}
-
-    for llave_val in sorted(todas):
-        fila_cc = cc[cc[llave] == llave_val]
-        fila_desc = desc[desc[llave] == llave_val]
-
-        if fila_cc.empty and not fila_desc.empty:
-            conteo["sin_match"] += 1
+        # NO_MAESTRO: llaves en CC/Desc que no estan en maestro
+        no_maestro = (llaves_cc | llaves_desc) - llaves_maestro
+        for lv in sorted(no_maestro):
+            in_cc = lv in llaves_cc
+            in_desc = lv in llaves_desc
+            fuentes = []
+            if in_cc:
+                fuentes.append("CC")
+            if in_desc:
+                fuentes.append("Desc")
+            conteo["no_maestro"] += 1
             excepciones.append({
-                "llave": llave_val,
+                "llave": lv,
                 "concepto": "(todos)",
-                "esperado": "0",
-                "real": "presente en descuentos",
-                "diferencia": "SIN_MATCH",
-                "tipo": "SIN_MATCH",
+                "esperado": "presente en maestro",
+                "real": "en {} pero no en maestro".format(" y ".join(fuentes)),
+                "diferencia": "NO_MAESTRO",
+                "tipo": "NO_MAESTRO",
             })
-            continue
+        if no_maestro:
+            mensajes.append(_msg("warn",
+                "{} llave(s) en CC/Desc no encontrada(s) en maestro".format(
+                    len(no_maestro))))
 
-        if not fila_cc.empty and fila_desc.empty:
-            conteo["sin_match"] += 1
-            excepciones.append({
-                "llave": llave_val,
-                "concepto": "(todos)",
-                "esperado": "presente en cuenta cobro",
-                "real": "0",
-                "diferencia": "SIN_MATCH",
-                "tipo": "SIN_MATCH",
-            })
-            continue
+        # Iterar sobre llaves del maestro (fuente de verdad)
+        for llave_val in sorted(llaves_maestro):
+            in_cc = llave_val in llaves_cc
+            in_desc = llave_val in llaves_desc
 
-        # Ambas presentes: comparar por concepto
-        fila_cc_first = fila_cc.iloc[0]
-        fila_desc_first = fila_desc.iloc[0]
+            if in_cc and in_desc:
+                # CONCILIABLE: comparar conceptos
+                fila_cc = cc[cc[llave] == llave_val]
+                fila_desc = desc[desc[llave] == llave_val]
+                fila_cc_first = fila_cc.iloc[0]
+                fila_desc_first = fila_desc.iloc[0]
 
-        for concepto in conceptos:
-            fila_cc_idx = fila_cc.index[0]
-            fila_desc_idx = fila_desc.index[0]
+                for concepto in conceptos:
+                    fila_cc_idx = fila_cc.index[0]
+                    fila_desc_idx = fila_desc.index[0]
 
-            inv_cc = concepto in cc_invalidos and bool(cc_invalidos[concepto].loc[fila_cc_idx])
-            inv_desc = concepto in desc_invalidos and bool(desc_invalidos[concepto].loc[fila_desc_idx])
+                    inv_cc = concepto in cc_invalidos and bool(
+                        cc_invalidos[concepto].loc[fila_cc_idx])
+                    inv_desc = concepto in desc_invalidos and bool(
+                        desc_invalidos[concepto].loc[fila_desc_idx])
 
-            if inv_cc or inv_desc:
-                conteo["error"] += 1
-                val_orig_cc = str(cuenta_cobro[concepto].loc[fila_cc_idx]) if concepto in cuenta_cobro.columns else ""
-                val_orig_desc = str(descuentos[concepto].loc[fila_desc_idx]) if concepto in descuentos.columns else ""
+                    if inv_cc or inv_desc:
+                        conteo["error"] += 1
+                        val_orig_cc = str(cuenta_cobro[concepto].loc[fila_cc_idx]) if concepto in cuenta_cobro.columns else ""
+                        val_orig_desc = str(descuentos[concepto].loc[fila_desc_idx]) if concepto in descuentos.columns else ""
+                        excepciones.append({
+                            "llave": llave_val,
+                            "concepto": concepto,
+                            "esperado": val_orig_cc,
+                            "real": val_orig_desc,
+                            "diferencia": "DATO INVALIDO",
+                            "tipo": "ERROR",
+                        })
+                        resultados.append({
+                            "llave": llave_val,
+                            "concepto": concepto,
+                            "esperado": val_orig_cc,
+                            "real": val_orig_desc,
+                            "diferencia": 0,
+                            "estado": "ERROR",
+                        })
+                        continue
+
+                    val_esperado = 0
+                    val_real = 0
+                    if concepto in cc.columns:
+                        val_esperado = float(fila_cc_first.get(concepto, 0) or 0)
+                    if concepto in desc.columns:
+                        val_real = float(fila_desc_first.get(concepto, 0) or 0)
+
+                    diferencia = val_real - val_esperado
+
+                    if abs(diferencia) < 0.01:
+                        estado_reg = "OK"
+                        conteo["ok"] += 1
+                    elif diferencia > 0:
+                        estado_reg = "EXCEDENTE"
+                        conteo["excedente"] += 1
+                        excepciones.append({
+                            "llave": llave_val,
+                            "concepto": concepto,
+                            "esperado": str(val_esperado),
+                            "real": str(val_real),
+                            "diferencia": str(round(diferencia, 2)),
+                            "tipo": "EXCEDENTE",
+                        })
+                    else:
+                        estado_reg = "FALTANTE"
+                        conteo["faltante"] += 1
+                        excepciones.append({
+                            "llave": llave_val,
+                            "concepto": concepto,
+                            "esperado": str(val_esperado),
+                            "real": str(val_real),
+                            "diferencia": str(round(diferencia, 2)),
+                            "tipo": "FALTANTE",
+                        })
+
+                    resultados.append({
+                        "llave": llave_val,
+                        "concepto": concepto,
+                        "esperado": val_esperado,
+                        "real": val_real,
+                        "diferencia": round(diferencia, 2),
+                        "estado": estado_reg,
+                    })
+
+            elif in_cc and not in_desc:
+                conteo["sin_match"] += 1
                 excepciones.append({
                     "llave": llave_val,
-                    "concepto": concepto,
-                    "esperado": val_orig_cc,
-                    "real": val_orig_desc,
-                    "diferencia": "DATO INVALIDO",
-                    "tipo": "ERROR",
+                    "concepto": "(todos)",
+                    "esperado": "presente en cuenta cobro",
+                    "real": "no encontrada en descuentos",
+                    "diferencia": "SIN_MATCH",
+                    "tipo": "SIN_MATCH",
                 })
-                resultados.append({
+
+            elif not in_cc and in_desc:
+                conteo["sin_match"] += 1
+                excepciones.append({
                     "llave": llave_val,
-                    "concepto": concepto,
-                    "esperado": val_orig_cc,
-                    "real": val_orig_desc,
-                    "diferencia": 0,
-                    "estado": "ERROR",
+                    "concepto": "(todos)",
+                    "esperado": "no encontrada en cuenta cobro",
+                    "real": "presente en descuentos",
+                    "diferencia": "SIN_MATCH",
+                    "tipo": "SIN_MATCH",
+                })
+
+            else:
+                conteo["sin_actividad"] += 1
+                excepciones.append({
+                    "llave": llave_val,
+                    "concepto": "(todos)",
+                    "esperado": "presente en maestro",
+                    "real": "sin actividad en CC ni Desc",
+                    "diferencia": "SIN_ACTIVIDAD",
+                    "tipo": "SIN_ACTIVIDAD",
+                })
+
+    else:
+        # ── SIN MAESTRO: comportamiento original ──
+        todas = llaves_cc | llaves_desc
+
+        n_match = len(llaves_cc & llaves_desc)
+        cobertura = round(n_match / len(todas) * 100, 1) if todas else 0
+
+        n_duplicados = 0
+        for nombre_src, df_src in [("CC", cc), ("Desc", desc)]:
+            vals = df_src[llave][df_src[llave].str.strip() != ""]
+            n_dup = int(vals.duplicated().sum())
+            n_duplicados += n_dup
+            if n_dup > 0:
+                mensajes.append(_msg("warn",
+                    "{}: {} llaves duplicadas".format(nombre_src, n_dup)))
+
+        for llave_val in sorted(todas):
+            fila_cc = cc[cc[llave] == llave_val]
+            fila_desc = desc[desc[llave] == llave_val]
+
+            if fila_cc.empty and not fila_desc.empty:
+                conteo["sin_match"] += 1
+                excepciones.append({
+                    "llave": llave_val,
+                    "concepto": "(todos)",
+                    "esperado": "0",
+                    "real": "presente en descuentos",
+                    "diferencia": "SIN_MATCH",
+                    "tipo": "SIN_MATCH",
                 })
                 continue
 
-            val_esperado = 0
-            val_real = 0
-
-            if concepto in cc.columns:
-                val_esperado = float(fila_cc_first.get(concepto, 0) or 0)
-            if concepto in desc.columns:
-                val_real = float(fila_desc_first.get(concepto, 0) or 0)
-
-            diferencia = val_real - val_esperado
-
-            if abs(diferencia) < 0.01:
-                estado_reg = "OK"
-                conteo["ok"] += 1
-            elif diferencia > 0:
-                estado_reg = "EXCEDENTE"
-                conteo["excedente"] += 1
+            if not fila_cc.empty and fila_desc.empty:
+                conteo["sin_match"] += 1
                 excepciones.append({
                     "llave": llave_val,
-                    "concepto": concepto,
-                    "esperado": str(val_esperado),
-                    "real": str(val_real),
-                    "diferencia": str(round(diferencia, 2)),
-                    "tipo": "EXCEDENTE",
+                    "concepto": "(todos)",
+                    "esperado": "presente en cuenta cobro",
+                    "real": "0",
+                    "diferencia": "SIN_MATCH",
+                    "tipo": "SIN_MATCH",
                 })
-            else:
-                estado_reg = "FALTANTE"
-                conteo["faltante"] += 1
-                excepciones.append({
+                continue
+
+            fila_cc_first = fila_cc.iloc[0]
+            fila_desc_first = fila_desc.iloc[0]
+
+            for concepto in conceptos:
+                fila_cc_idx = fila_cc.index[0]
+                fila_desc_idx = fila_desc.index[0]
+
+                inv_cc = concepto in cc_invalidos and bool(
+                    cc_invalidos[concepto].loc[fila_cc_idx])
+                inv_desc = concepto in desc_invalidos and bool(
+                    desc_invalidos[concepto].loc[fila_desc_idx])
+
+                if inv_cc or inv_desc:
+                    conteo["error"] += 1
+                    val_orig_cc = str(cuenta_cobro[concepto].loc[fila_cc_idx]) if concepto in cuenta_cobro.columns else ""
+                    val_orig_desc = str(descuentos[concepto].loc[fila_desc_idx]) if concepto in descuentos.columns else ""
+                    excepciones.append({
+                        "llave": llave_val,
+                        "concepto": concepto,
+                        "esperado": val_orig_cc,
+                        "real": val_orig_desc,
+                        "diferencia": "DATO INVALIDO",
+                        "tipo": "ERROR",
+                    })
+                    resultados.append({
+                        "llave": llave_val,
+                        "concepto": concepto,
+                        "esperado": val_orig_cc,
+                        "real": val_orig_desc,
+                        "diferencia": 0,
+                        "estado": "ERROR",
+                    })
+                    continue
+
+                val_esperado = 0
+                val_real = 0
+                if concepto in cc.columns:
+                    val_esperado = float(fila_cc_first.get(concepto, 0) or 0)
+                if concepto in desc.columns:
+                    val_real = float(fila_desc_first.get(concepto, 0) or 0)
+
+                diferencia = val_real - val_esperado
+
+                if abs(diferencia) < 0.01:
+                    estado_reg = "OK"
+                    conteo["ok"] += 1
+                elif diferencia > 0:
+                    estado_reg = "EXCEDENTE"
+                    conteo["excedente"] += 1
+                    excepciones.append({
+                        "llave": llave_val,
+                        "concepto": concepto,
+                        "esperado": str(val_esperado),
+                        "real": str(val_real),
+                        "diferencia": str(round(diferencia, 2)),
+                        "tipo": "EXCEDENTE",
+                    })
+                else:
+                    estado_reg = "FALTANTE"
+                    conteo["faltante"] += 1
+                    excepciones.append({
+                        "llave": llave_val,
+                        "concepto": concepto,
+                        "esperado": str(val_esperado),
+                        "real": str(val_real),
+                        "diferencia": str(round(diferencia, 2)),
+                        "tipo": "FALTANTE",
+                    })
+
+                resultados.append({
                     "llave": llave_val,
                     "concepto": concepto,
-                    "esperado": str(val_esperado),
-                    "real": str(val_real),
-                    "diferencia": str(round(diferencia, 2)),
-                    "tipo": "FALTANTE",
+                    "esperado": val_esperado,
+                    "real": val_real,
+                    "diferencia": round(diferencia, 2),
+                    "estado": estado_reg,
                 })
-
-            resultados.append({
-                "llave": llave_val,
-                "concepto": concepto,
-                "esperado": val_esperado,
-                "real": val_real,
-                "diferencia": round(diferencia, 2),
-                "estado": estado_reg,
-            })
 
     # Novedades desde maestro (fecha_ingreso / fecha_retiro)
     if maestro is not None and maestro_cfg is not None:
@@ -905,14 +1063,20 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
     estado = "ok"
     if excepciones:
         estado = "warn"
-    if conteo["error"] > 0:
+    if conteo["error"] > 0 or conteo["no_maestro"] > 0:
         estado = "error"
 
     total_comparaciones = sum(conteo.values())
     mensajes.append(_msg("info", "{} comparaciones realizadas".format(total_comparaciones)))
-    mensajes.append(_msg("info", "OK: {}, Excedente: {}, Faltante: {}, Sin match: {}".format(
-        conteo["ok"], conteo["excedente"], conteo["faltante"], conteo["sin_match"]
-    )))
+    info_parts = ["OK: {}".format(conteo["ok"]),
+                  "Excedente: {}".format(conteo["excedente"]),
+                  "Faltante: {}".format(conteo["faltante"]),
+                  "Sin match: {}".format(conteo["sin_match"])]
+    if conteo["no_maestro"] > 0:
+        info_parts.append("No maestro: {}".format(conteo["no_maestro"]))
+    if conteo["sin_actividad"] > 0:
+        info_parts.append("Sin actividad: {}".format(conteo["sin_actividad"]))
+    mensajes.append(_msg("info", ", ".join(info_parts)))
     if novedades:
         mensajes.append(_msg("info", "{} novedad(es) detectada(s)".format(len(novedades))))
 
@@ -937,6 +1101,8 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
         "excedente": conteo["excedente"],
         "faltante": conteo["faltante"],
         "error": conteo["error"],
+        "no_maestro": conteo["no_maestro"],
+        "sin_actividad": conteo["sin_actividad"],
         "periodo": periodo_label,
     }
 

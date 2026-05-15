@@ -1040,6 +1040,29 @@ const App = (() => {
     if (falEl) falEl.textContent = results.faltante != null ? results.faltante : 0;
     if (errEl) errEl.textContent = results.error != null ? results.error : 0;
 
+    // Metricas condicionales: No Maestro y Sin Actividad
+    var nmCard = $('#metrica-no-maestro-card');
+    var nmEl = $('#metrica-no-maestro');
+    var saCard = $('#metrica-sin-actividad-card');
+    var saEl = $('#metrica-sin-actividad');
+
+    if (nmCard) {
+      if (results.noMaestro > 0) {
+        nmCard.removeAttribute('hidden');
+        if (nmEl) nmEl.textContent = results.noMaestro;
+      } else {
+        nmCard.setAttribute('hidden', '');
+      }
+    }
+    if (saCard) {
+      if (results.sinActividad > 0) {
+        saCard.removeAttribute('hidden');
+        if (saEl) saEl.textContent = results.sinActividad;
+      } else {
+        saCard.setAttribute('hidden', '');
+      }
+    }
+
     // Cola de excepciones
     var tbody = $('#excepciones-body');
     if (tbody) {
@@ -1095,9 +1118,12 @@ const App = (() => {
       btn.disabled = (results.excepciones || []).length > 0;
     }
 
-    addLog('info', 'Conciliacion: ' + (results.ok || 0) + ' OK, ' +
+    var logMsg = 'Conciliacion: ' + (results.ok || 0) + ' OK, ' +
       (results.excedente || 0) + ' excedente(s), ' +
-      (results.faltante || 0) + ' faltante(s)');
+      (results.faltante || 0) + ' faltante(s)';
+    if (results.noMaestro > 0) logMsg += ', ' + results.noMaestro + ' no maestro';
+    if (results.sinActividad > 0) logMsg += ', ' + results.sinActividad + ' sin actividad';
+    addLog('info', logMsg);
   }
 
   /* ============================================
@@ -1567,6 +1593,8 @@ const App = (() => {
         excedente: datos.excedente || 0,
         faltante: datos.faltante || 0,
         error: datos.error || 0,
+        noMaestro: datos.no_maestro || 0,
+        sinActividad: datos.sin_actividad || 0,
         excepciones: datos.excepciones || [],
         novedades: datos.novedades || [],
         periodo: datos.periodo || ''

@@ -624,7 +624,7 @@ body {
 
 .metricas {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: var(--space-md);
 }
 
@@ -651,6 +651,24 @@ body {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.metrica--error {
+  border-color: var(--error-border);
+  background: var(--error-bg);
+}
+
+.metrica--error .metrica__valor {
+  color: var(--error);
+}
+
+.metrica--warn {
+  border-color: var(--warn-border);
+  background: var(--warn-bg);
+}
+
+.metrica--warn .metrica__valor {
+  color: var(--warn);
 }
 
 /* ============================================
