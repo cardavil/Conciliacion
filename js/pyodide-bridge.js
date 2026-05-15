@@ -384,11 +384,43 @@ const PyBridge = (() => {
      ============================================ */
 
   async function conciliate(config) {
+    var selectDecimal = document.getElementById('select-decimal');
+    var decSep = selectDecimal ? selectDecimal.value : ',';
+
+    var edaResults = App.getEdaResults();
+
+    function extractInvalids(fileName) {
+      var inv = {};
+      var eda = edaResults[fileName];
+      if (!eda || !eda.datos) return inv;
+      var perfil = eda.datos.perfil_columnas || [];
+      for (var i = 0; i < config.conceptos.length; i++) {
+        var col = config.conceptos[i];
+        for (var p = 0; p < perfil.length; p++) {
+          if (perfil[p].nombre === col && perfil[p].invalidos > 0) {
+            var det = perfil[p].detalle_invalidos || [];
+            inv[col] = [];
+            for (var d = 0; d < det.length; d++) {
+              inv[col].push(det[d].fila);
+            }
+            break;
+          }
+        }
+      }
+      return inv;
+    }
+
+    var ccInv = extractInvalids(config.cc.name);
+    var descInv = extractInvalids(config.desc.name);
+
     var pyCode = '';
     pyCode += '_con_cc = leer_archivo("/uploads/' + escapePyString(config.cc.name) + '")\n';
     pyCode += '_con_desc = leer_archivo("/uploads/' + escapePyString(config.desc.name) + '")\n';
     pyCode += '_con_llave = "' + escapePyString(config.cc.llave) + '"\n';
     pyCode += '_con_conceptos = ' + JSON.stringify(config.conceptos) + '\n';
+    pyCode += '_con_decimal_sep = "' + escapePyString(decSep) + '"\n';
+    pyCode += '_con_cc_inv = ' + JSON.stringify(ccInv) + '\n';
+    pyCode += '_con_desc_inv = ' + JSON.stringify(descInv) + '\n';
 
     if (config.maestro) {
       pyCode += '_con_maestro = leer_archivo("/uploads/' + escapePyString(config.maestro.name) + '")\n';
@@ -400,9 +432,9 @@ const PyBridge = (() => {
         pyCode += ', "col_fecha_ingreso": None';
       }
       pyCode += '}\n';
-      pyCode += 'resultado_a_json(conciliar(_con_cc, _con_desc, _con_llave, _con_conceptos, maestro=_con_maestro, maestro_cfg=_con_maestro_cfg))';
+      pyCode += 'resultado_a_json(conciliar(_con_cc, _con_desc, _con_llave, _con_conceptos, maestro=_con_maestro, maestro_cfg=_con_maestro_cfg, decimal_sep=_con_decimal_sep, cc_invalidos_eda=_con_cc_inv, desc_invalidos_eda=_con_desc_inv))';
     } else {
-      pyCode += 'resultado_a_json(conciliar(_con_cc, _con_desc, _con_llave, _con_conceptos))';
+      pyCode += 'resultado_a_json(conciliar(_con_cc, _con_desc, _con_llave, _con_conceptos, decimal_sep=_con_decimal_sep, cc_invalidos_eda=_con_cc_inv, desc_invalidos_eda=_con_desc_inv))';
     }
 
     var resultJson = await callPythonSimple(pyCode);

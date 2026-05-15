@@ -536,25 +536,62 @@ const App = (() => {
             subThead.appendChild(subTrHead);
             subTable.appendChild(subThead);
             var subTbody = document.createElement('tbody');
-            for (var d = 0; d < detalle.length; d++) {
-              var subTr = document.createElement('tr');
-              var tdFila = document.createElement('td');
-              tdFila.textContent = detalle[d].fila;
-              var tdValor = document.createElement('td');
-              tdValor.textContent = detalle[d].valor;
-              subTr.appendChild(tdFila);
-              subTr.appendChild(tdValor);
-              subTbody.appendChild(subTr);
-            }
             subTable.appendChild(subTbody);
             scrollWrap.appendChild(subTable);
             detailTd.appendChild(scrollWrap);
-            if (col.detalle_truncado) {
-              var nota = document.createElement('div');
-              nota.className = 'eda-detalle-nota';
-              nota.textContent = 'Mostrando ' + detalle.length + ' de ' + nInv + ' invalidos';
-              detailTd.appendChild(nota);
-            }
+
+            var PAGE_SIZE = 20;
+            var pagBar = document.createElement('div');
+            pagBar.className = 'eda-detalle-paginacion';
+            detailTd.appendChild(pagBar);
+
+            (function (tbody, allItems, bar) {
+              var page = 0;
+              var totalPages = Math.ceil(allItems.length / PAGE_SIZE);
+
+              function renderPage() {
+                tbody.innerHTML = '';
+                var start = page * PAGE_SIZE;
+                var end = Math.min(start + PAGE_SIZE, allItems.length);
+                for (var d = start; d < end; d++) {
+                  var subTr = document.createElement('tr');
+                  var tdF = document.createElement('td');
+                  tdF.textContent = allItems[d].fila;
+                  var tdV = document.createElement('td');
+                  tdV.textContent = allItems[d].valor;
+                  subTr.appendChild(tdF);
+                  subTr.appendChild(tdV);
+                  tbody.appendChild(subTr);
+                }
+                bar.innerHTML = '';
+                if (totalPages > 1) {
+                  var btnPrev = document.createElement('button');
+                  btnPrev.className = 'boton boton--accion';
+                  btnPrev.textContent = '← Anterior';
+                  btnPrev.disabled = (page === 0);
+                  btnPrev.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    if (page > 0) { page--; renderPage(); }
+                  });
+                  var label = document.createElement('span');
+                  label.className = 'eda-detalle-paginacion__label';
+                  label.textContent = (start + 1) + '-' + end + ' de ' + allItems.length;
+                  var btnNext = document.createElement('button');
+                  btnNext.className = 'boton boton--accion';
+                  btnNext.textContent = 'Siguiente →';
+                  btnNext.disabled = (page >= totalPages - 1);
+                  btnNext.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    if (page < totalPages - 1) { page++; renderPage(); }
+                  });
+                  bar.appendChild(btnPrev);
+                  bar.appendChild(label);
+                  bar.appendChild(btnNext);
+                }
+              }
+              renderPage();
+            })(subTbody, detalle, pagBar);
+
             detailRow.appendChild(detailTd);
 
             (function (toggle, detail, chev) {

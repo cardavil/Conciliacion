@@ -12,8 +12,6 @@ from datetime import datetime, date
 import calendar
 
 
-MAX_DETALLE_INVALIDOS = 50
-
 
 def _es_tipo_texto(dtype):
     return pd.api.types.is_string_dtype(dtype) or dtype == object
@@ -308,7 +306,7 @@ def _contar_invalidos(serie, tipo_detectado, decimal_sep=","):
     muestra = [str(v) for v in serie[invalidos_mask].unique()[:5]]
     detalle = []
     if n_invalidos > 0:
-        for idx in serie[invalidos_mask].index[:MAX_DETALLE_INVALIDOS]:
+        for idx in serie[invalidos_mask].index:
             detalle.append({"fila": int(idx) + 2, "valor": str(serie[idx])})
     return n_validos, n_invalidos, muestra, detalle
 
@@ -374,7 +372,6 @@ def _perfilar_columna(serie, decimal_sep=","):
         "pct_invalidos": pct_invalidos,
         "muestra_invalidos": muestra_invalidos,
         "detalle_invalidos": detalle_invalidos,
-        "detalle_truncado": n_invalidos > MAX_DETALLE_INVALIDOS,
         "unicos": n_unicos,
         "total": n_total,
         "valores_muestra": valores_muestra,
@@ -606,7 +603,8 @@ def validar_fuente(nombre, ruta, perfil=None, decimal_sep=","):
 # ETAPA 3 — CONCILIACION
 # ============================================
 
-def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_cfg=None):
+def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_cfg=None,
+              decimal_sep=",", cc_invalidos_eda=None, desc_invalidos_eda=None):
     """
     Cruza cuenta de cobro vs descuentos por llave y conceptos.
     Por cada registro determina: OK, EXCEDENTE, FALTANTE, SIN_MATCH.
@@ -632,24 +630,94 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
     cc[llave] = cc[llave].astype(str).str.strip()
     desc[llave] = desc[llave].astype(str).str.strip()
 
-    # Convertir columnas de concepto a numerico, detectando invalidos
+    # Mascara de invalidos desde EDA + conversion locale-aware
+    miles_sep = "." if decimal_sep == "," else ","
     cc_invalidos = {}
     desc_invalidos = {}
+
     for col in conceptos:
         if col in cc.columns:
             raw = cc[col].astype(str).str.strip()
-            convertido = pd.to_numeric(cc[col], errors="coerce")
-            cc_invalidos[col] = convertido.isna() & raw.ne("")
-            cc[col] = convertido.fillna(0)
+            if cc_invalidos_eda and col in cc_invalidos_eda:
+                inv_filas = set(cc_invalidos_eda[col])
+                cc_invalidos[col] = pd.Series(
+                    [(int(idx) + 2) in inv_filas for idx in cc.index],
+                    index=cc.index
+                )
+            else:
+                cc_invalidos[col] = pd.Series(False, index=cc.index)
+            valid_raw = raw.where(~cc_invalidos[col], other="0")
+            cc[col] = pd.to_numeric(
+                valid_raw
+                    .str.replace(miles_sep, "", regex=False)
+                    .str.replace(decimal_sep, ".", regex=False),
+                errors="coerce"
+            ).fillna(0)
+
         if col in desc.columns:
             raw = desc[col].astype(str).str.strip()
-            convertido = pd.to_numeric(desc[col], errors="coerce")
-            desc_invalidos[col] = convertido.isna() & raw.ne("")
-            desc[col] = convertido.fillna(0)
+            if desc_invalidos_eda and col in desc_invalidos_eda:
+                inv_filas = set(desc_invalidos_eda[col])
+                desc_invalidos[col] = pd.Series(
+                    [(int(idx) + 2) in inv_filas for idx in desc.index],
+                    index=desc.index
+                )
+            else:
+                desc_invalidos[col] = pd.Series(False, index=desc.index)
+            valid_raw = raw.where(~desc_invalidos[col], other="0")
+            desc[col] = pd.to_numeric(
+                valid_raw
+                    .str.replace(miles_sep, "", regex=False)
+                    .str.replace(decimal_sep, ".", regex=False),
+                errors="coerce"
+            ).fillna(0)
 
     llaves_cc = set(cc[llave].unique())
     llaves_desc = set(desc[llave].unique())
     todas = llaves_cc | llaves_desc
+
+    # Validar maestro como fuente de verdad
+    llaves_maestro = set()
+    if maestro is not None and maestro_cfg is not None:
+        m_pre = maestro.copy()
+        col_llave_m = maestro_cfg.get("llave", llave)
+        if col_llave_m in m_pre.columns:
+            m_pre[col_llave_m] = m_pre[col_llave_m].astype(str).str.strip()
+
+            vacias_m = m_pre[m_pre[col_llave_m] == ""]
+            if len(vacias_m) > 0:
+                mensajes.append(_msg("warn",
+                    "Maestro: {} fila(s) con llave vacia".format(len(vacias_m))))
+                for idx in vacias_m.index[:10]:
+                    excepciones.append({
+                        "llave": "(vacia fila {})".format(int(idx) + 2),
+                        "concepto": "(maestro)",
+                        "esperado": "llave valida",
+                        "real": "vacio",
+                        "diferencia": "DATA_QUALITY",
+                        "tipo": "DATA_QUALITY",
+                    })
+
+            llaves_maestro = set(m_pre[m_pre[col_llave_m] != ""][col_llave_m].unique())
+
+            sin_maestro = (llaves_cc | llaves_desc) - llaves_maestro
+            for lv in sorted(sin_maestro):
+                excepciones.append({
+                    "llave": lv,
+                    "concepto": "(maestro)",
+                    "esperado": "presente en maestro",
+                    "real": "no encontrada",
+                    "diferencia": "DATA_QUALITY",
+                    "tipo": "DATA_QUALITY",
+                })
+            if sin_maestro:
+                mensajes.append(_msg("warn",
+                    "{} llave(s) en CC/Desc no encontrada(s) en maestro".format(len(sin_maestro))))
+
+            solo_maestro = llaves_maestro - (llaves_cc | llaves_desc)
+            if solo_maestro:
+                mensajes.append(_msg("info",
+                    "{} llave(s) en maestro sin actividad en CC ni Desc".format(len(solo_maestro))))
 
     n_match = len(llaves_cc & llaves_desc)
     cobertura = round(n_match / len(todas) * 100, 1) if todas else 0
@@ -828,22 +896,6 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
                         "mensaje": "Asociado nuevo: {} (ingreso: {})".format(
                             lv, raw_ingreso),
                     })
-
-            # Validar llaves del maestro contra CC/Desc
-            llaves_conc = llaves_cc | llaves_desc
-            for nov in novedades:
-                lv = nov["llave"]
-                if lv not in llaves_conc:
-                    excepciones.append({
-                        "llave": lv,
-                        "concepto": "(maestro)",
-                        "esperado": "presente en CC o Desc",
-                        "real": "no encontrada",
-                        "diferencia": nov["tipo"],
-                        "tipo": "DATA_QUALITY",
-                    })
-                    mensajes.append(_msg("warn",
-                        "Llave {} del maestro no coincide con CC ni Desc".format(lv)))
 
     # Contar excepciones DATA_QUALITY como errores
     n_data_quality = sum(1 for e in excepciones if e.get("tipo") == "DATA_QUALITY")
