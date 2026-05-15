@@ -1,6 +1,6 @@
 # DESIGN.md — Diseño del Sistema
 
-> Referencia visual y funcional para la UI. Basado en mockups iniciales.
+> Referencia visual y funcional para la UI.
 
 ---
 
@@ -14,34 +14,21 @@
 │                                                  │
 │  CONTENIDO PRINCIPAL                             │
 │                                                  │
-│  Etapas apiladas verticalmente (acordeón)        │
+│  4 etapas apiladas verticalmente (acordeón)      │
 │  Cada etapa se expande/colapsa                   │
 │  Solo una etapa activa a la vez                  │
 │                                                  │
 │  ┌────────────────────────────────────────────┐  │
 │  │ Etapa 1 · Revisión de Entorno     [✓ OK]  │  │
-│  ├────────────────────────────────────────────┤  │
-│  │ (contenido colapsado o expandido)          │  │
 │  └────────────────────────────────────────────┘  │
-│                                                  │
 │  ┌────────────────────────────────────────────┐  │
 │  │ Etapa 2 · Validación por Fuente   [⚠ 2]   │  │
-│  ├────────────────────────────────────────────┤  │
-│  │ (contenido colapsado o expandido)          │  │
 │  └────────────────────────────────────────────┘  │
-│                                                  │
 │  ┌────────────────────────────────────────────┐  │
-│  │ Etapa 3 · Validación Cruzada      [● ACT] │  │
-│  ├────────────────────────────────────────────┤  │
-│  │ (contenido expandido — etapa activa)       │  │
+│  │ Etapa 3 · Conciliación            [● ACT] │  │
 │  └────────────────────────────────────────────┘  │
-│                                                  │
 │  ┌────────────────────────────────────────────┐  │
-│  │ Etapa 4 · Conciliación            [🔒]     │  │
-│  └────────────────────────────────────────────┘  │
-│                                                  │
-│  ┌────────────────────────────────────────────┐  │
-│  │ Etapa 5 · Reportes                [🔒]     │  │
+│  │ Etapa 4 · Reportes                [🔒]     │  │
 │  └────────────────────────────────────────────┘  │
 │                                                  │
 │  ┌────────────────────────────────────────────┐  │
@@ -80,7 +67,7 @@ ERROR    →  rojo, tiene errores que bloquean avance
 
 ### Reglas de navegación
 ```
-- Las etapas son secuenciales (1 → 2 → 3 → 4 → 5)
+- Las etapas son secuenciales (1 → 2 → 3 → 4)
 - No se puede avanzar si la etapa actual tiene errores críticos
 - Se puede volver a etapas anteriores (para revisar, no para editar)
 - La etapa activa se expande automáticamente
@@ -92,230 +79,232 @@ ERROR    →  rojo, tiene errores que bloquean avance
 
 ## 4. ETAPA 1 — REVISIÓN DE ENTORNO
 
-### Contenido expandido
 ```
-┌────────────────────────────────────────────────┐
-│ Etapa 1 · Revisión de Entorno          [✓ OK] │
-├────────────────────────────────────────────────┤
-│                                                │
-│  [Zona de carga de archivos — drag & drop]     │
-│                                                │
-│  ─────────────────────────────────────         │
-│  Archivos detectados (N)                       │
-│                                                │
-│  ●  archivo1.txt     TXT·|   Fuente    248 KB  │
-│  ●  archivo2.txt     TXT·|   Fuente    312 KB  │
-│  ●  archivo3.xlsx    XLSX    Fuente    189 KB  │
-│  ●  catalogo1.csv    CSV     Catálogo    4 KB  │
-│  ⚠  otro.xlsx        XLSX   Sin clasificar     │
-│                                                │
-│                          [↻ Actualizar]        │
-└────────────────────────────────────────────────┘
-```
-
-### Análisis EDA por archivo (tarjetas expandibles)
-```
-┌────────────────────────────────────────────────┐
-│ Análisis de calidad por archivo                │
-│                                                │
-│ ┌────────────────────────────────────────────┐ │
-│ │● archivo1.txt  1842 filas · 8 cols  [OK]  │ │
-│ │  (click para expandir tabla de columnas)   │ │
-│ │  Columna  │ Tipo     │ Nulos │ Vacíos │ Muestra │
-│ │  cedula   │ texto    │  ▓ 0% │   0    │ 00123.. │
-│ │  monto    │ numérico │  ▓ 2% │   0    │ 1234.56 │
-│ │  fecha    │ fecha    │  ▓ 0% │   0    │ 2024-.. │
-│ │  ⚠ col_a: 25% valores nulos/vacíos        │ │
-│ └────────────────────────────────────────────┘ │
-│ ┌────────────────────────────────────────────┐ │
-│ │⚠ archivo2.xlsx  671 filas · 5 cols [2 ⚠]  │ │
-│ └────────────────────────────────────────────┘ │
-└────────────────────────────────────────────────┘
-```
-
-### Salidas esperadas
-```
-┌────────────────────────────────────────────────┐
-│ Salidas esperadas                              │
-│                                                │
-│  ○  Conciliación consolidada    .xlsx  Etapa 4 │
-│  ○  Extractos por empresa       .xlsx  Etapa 4 │
-│  ○  Reporte de excepciones      .xlsx  Etapa 4 │
-│  ○  Log de auditoría            .xlsx  Etapa 5 │
-│                                                │
-│  (estado se actualiza: Bloqueado → En proceso  │
-│   → Generado según avance de etapas)           │
-└────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────┐
+│ Etapa 1 · Revisión de Entorno              [✓ OK] │
+├────────────────────────────────────────────────────┤
+│                                                    │
+│  [📁 Seleccionar carpeta de entrada]               │
+│  Ruta: C:\datos\quincena_mayo  ●                   │
+│  3 archivos detectados                             │
+│                                                    │
+│  [📁 Seleccionar carpeta de salida]                │
+│  Ruta: C:\datos\salida  ●                          │
+│                                                    │
+│  ─────────────────────────────────────             │
+│  Archivos detectados                               │
+│                                                    │
+│  Estado │ Nombre          │ Tipo  │ Categoría │ KB │
+│  ●      │ emp1.txt        │ TXT   │ Fuente    │248 │
+│  ●      │ emp2.txt        │ TXT   │ Fuente    │312 │
+│  ●      │ descuentos.xlsx │ XLSX  │ Fuente    │189 │
+│  ●      │ maestro.xlsx    │ XLSX  │ Fuente    │  4 │
+│                                                    │
+│  ─────────────────────────────────────             │
+│  Formato numérico                                  │
+│  Separador decimal: [Coma (,) ▼]                   │
+│  Separador miles:   [Punto (.) ▼]                  │
+│  Idioma detectado:  es-CO                          │
+│                                                    │
+│           [↻ Actualizar] [▶ Continuar a Etapa 2]  │
+└────────────────────────────────────────────────────┘
 ```
 
 ### Elementos
-- Zona de drag & drop para subir archivos
-- Tabla de archivos detectados con: indicador (●/⚠), nombre, tipo, categoría, tamaño
-- Tags de tipo de archivo (TXT, XLSX, CSV) con color diferenciado
-- Archivos sin clasificar marcados con advertencia
-- Tarjetas EDA expandibles por archivo con tabla de columnas (tipo, nulos, vacíos, únicos, muestra)
-- Tags de tipo de columna: texto (gris), numérico (azul), fecha (violeta)
-- Mini-bar visual de porcentaje de nulos por columna
-- Badge de llave sugerida en columna candidata
-- Sección de salidas esperadas con estado por etapa (bloqueado/pendiente/generado)
-- Botón actualizar
+- Selector de carpeta de entrada (File System Access API, no drag & drop)
+- Selector de carpeta de salida (opcional, para escribir reportes directo a disco)
+- Tabla de archivos detectados: estado (dot), nombre, tipo, categoría, tamaño
+- Tags de tipo de archivo (TXT, CSV, XLSX) con color diferenciado
+- Configuración de formato numérico: separador decimal y de miles (dropdowns)
+- Idioma detectado del navegador
+- Botón actualizar (re-lee carpeta)
+- Botón continuar (habilitado si hay archivos)
 
 ---
 
 ## 5. ETAPA 2 — VALIDACIÓN POR FUENTE
 
-### Contenido expandido
 ```
-┌────────────────────────────────────────────────┐
-│ Etapa 2 · Validación por Fuente     [⚠ 2]     │
-├────────────────────────────────────────────────┤
-│                                                │
-│  ANÁLISIS DE CALIDAD POR ARCHIVO               │
-│  ┌────────────────────────────────────────────┐│
-│  │● archivo1.txt  1842 filas · 8 cols  [OK]  ││
-│  │  (click para expandir perfil de columnas)  ││
-│  └────────────────────────────────────────────┘│
-│  ┌────────────────────────────────────────────┐│
-│  │⚠ archivo2.xlsx  671 filas · 5 cols [2 ⚠]  ││
-│  └────────────────────────────────────────────┘│
-│                                                │
-│  CONFIGURACIÓN DE CRUCE                        │
-│  ┌──────────────────────────────────────────┐  │
-│  │ archivo1.txt  [Cuenta de cobro ▼] [cedula▼]│
-│  │ archivo2.xlsx [Descuentos ▼]      [cc ▼]   │
-│  │ archivo3.xlsx [No usar ▼]         [— ▼]    │
-│  └──────────────────────────────────────────┘  │
-│                                                │
-│  COLUMNAS DE CONCEPTO                          │
-│  [✓ APORTES] [✓ CREDITO] [ ] SEGUROS          │
-│                                                │
-│  ✓ Configuración lista                         │
-│              [▶ Continuar a Etapa 3]           │
-└────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ Etapa 2 · Validación por Fuente                  [⚠ 2]  │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│  ℹ Si necesita corregir valores, actualice el archivo    │
+│    y presione [Volver a analizar]                        │
+│                                                          │
+│  ANÁLISIS DE CALIDAD POR ARCHIVO                         │
+│  ┌──────────────────────────────────────────────────┐    │
+│  │● emp1.txt  1842 filas · 8 cols  [OK]             │    │
+│  │  Columna │ Tipo   │ Inv. │ Válidos │ Vacíos │ Mu.│    │
+│  │  CEDULA  │ texto  │  0   │  1842   │   0    │ 00.│    │
+│  │  MONTO   │ numér. │  3↗  │  1839   │   0    │ 1..│    │
+│  │  ↗ = click para ver detalle de inválidos         │    │
+│  └──────────────────────────────────────────────────┘    │
+│  ┌──────────────────────────────────────────────────┐    │
+│  │⚠ descuentos.xlsx  671 filas · 5 cols  [2 ⚠]     │    │
+│  └──────────────────────────────────────────────────┘    │
+│                                                          │
+│  CONFIGURACIÓN DE CRUCE                                  │
+│  ┌──────────────────────────────────────────────────┐    │
+│  │ emp1.txt, emp2.txt  [Cuenta de cobro ▼] [CEDULA▼]│    │
+│  │ descuentos.xlsx     [Descuentos ▼]      [CC ▼]   │    │
+│  │ maestro.xlsx        [Maestro ▼]         [ID ▼]   │    │
+│  └──────────────────────────────────────────────────┘    │
+│                                                          │
+│  MAPEO DE COLUMNAS (tabla matricial)                     │
+│  ┌─────────┬────────┬────────┬────────┬───────┬─────┐   │
+│  │ Archivo │Nombre  │Cod.emp │APORTES │AHORROS│CRED.│   │
+│  │ Maestro │[— ▼]   │[— ▼]   │[— ▼]   │[— ▼]  │[— ▼]│   │
+│  │ CC      │[NOM ▼] │[COD ▼] │[APO ▼] │[AHO ▼]│[CRE]│   │
+│  │ Desc    │[NOM ▼] │[COD ▼] │[APO ▼] │[AHO ▼]│[CRE]│   │
+│  └─────────┴────────┴────────┴────────┴───────┴─────┘   │
+│                                                          │
+│  ✓ Configuración lista — 3 conceptos: APORTES, ...      │
+│                    [▶ Continuar a Etapa 3]               │
+└──────────────────────────────────────────────────────────┘
 ```
 
 ### Elementos
-- Tarjetas EDA expandibles por archivo con perfil de columnas
-- Sección de configuración de cruce (aparece tras EDA):
+- Alerta informativa con botón "Volver a analizar" (re-lee archivos de carpeta)
+- Tarjetas EDA expandibles por archivo:
+  - Tabla de columnas: nombre, tipo, inválidos, válidos, vacíos, únicos, muestra
+  - Click en conteo de inválidos → mini-tabla Fila/Valor (cap 50 registros)
+  - Tags de tipo: texto (gris), numérico (azul), fecha (violeta)
+  - Mini-bar visual de porcentaje de nulos por columna
+  - Badge de llave sugerida en columna candidata
+  - Paginación si hay muchas columnas
+- Configuración de cruce:
   - Fila por archivo: nombre + dropdown de rol + dropdown de llave
-  - Roles: No usar / Cuenta de cobro / Descuentos / Período anterior
+  - Roles: No usar / Cuenta de cobro / Descuentos / Maestro
+  - Multi-TXT: todos los TXT de CC se muestran como una sola fila con nombres combinados
   - Llave: columnas del archivo (default = llave sugerida del EDA)
-- Checkboxes de columnas de concepto (numéricas compartidas entre CC y Desc)
-- Mensaje de validación (ok/error)
+- Tabla matricial de mapeo de columnas:
+  - Filas: Maestro (si existe, primero) → CC → Desc
+  - Columnas: campos opcionales (Nombre, Cod, Empresa) → conceptos fijos (APORTES..CREDITO)
+  - Cada celda = dropdown con columnas reales del archivo
+  - Auto-selección por coincidencia de nombre
+- Mensaje de validación: conceptos detectados (intersección CC ∩ Desc)
 - Botón de avance habilitado solo con configuración válida
 
 ---
 
-## 6. ETAPA 3 — VALIDACIÓN CRUZADA
+## 6. ETAPA 3 — CONCILIACIÓN
 
-### Contenido expandido
 ```
-┌────────────────────────────────────────────────┐
-│ Etapa 3 · Validación Cruzada        [● ACT]   │
-├────────────────────────────────────────────────┤
-│                                                │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────┐│
-│  │  1,618   │ │    24    │ │    3     │ │98.5%││
-│  │  Match   │ │ Sin match│ │Duplicados│ │Cob. ││
-│  └──────────┘ └──────────┘ └──────────┘ └────┘│
-│                                                │
-│  DETALLE SIN MATCH                             │
-│  ┌──────────────────────────────────────────┐  │
-│  │ Llave │ Presente en    │ Monto │ Acción  │  │
-│  │ XXX   │ Fuente A no B  │ $NNN  │ [✓][✏][✗]│  │
-│  │ YYY   │ Fuente B no A  │ $NNN  │ [✓][✏][✗]│  │
-│  └──────────────────────────────────────────┘  │
-│                                                │
-│  [▶ Continuar] (deshabilitado si hay críticos) │
-└────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ Etapa 3 · Conciliación                       [● ACT]    │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│  Período: Q1 Mayo 2026                                   │
+│                                                          │
+│  ┌────────┐ ┌──────────┐ ┌──────────┐ ┌──────┐          │
+│  │  1618  │ │    24    │ │    3     │ │ 98.5%│          │
+│  │ Match  │ │Sin match │ │Duplicados│ │ Cob. │          │
+│  └────────┘ └──────────┘ └──────────┘ └──────┘          │
+│  ┌────────────┐ ┌──────────────┐  (condicionales)       │
+│  │  5 No Mro. │ │ 12 Sin Act. │                         │
+│  └────────────┘ └──────────────┘                         │
+│                                                          │
+│  OK: 1500 · Excedente: 42 · Faltante: 68 · Error: 8    │
+│                                                          │
+│  COLA DE EXCEPCIONES                                     │
+│  ┌──────────────────────────────────────────────────┐    │
+│  │ Llave↕ │ Tipo     │ Concepto │ Esperado │ Real  │    │
+│  │        │          │          │    ?     │   ?   │    │
+│  │ 12345  │●FALTANTE │ APORTES  │ $50,000  │$45,000│    │
+│  │ 67890  │●EXCEDENTE│ CREDITO  │ $30,000  │$35,000│    │
+│  │ 11111  │●SIN_MATCH│ —        │ $20,000  │   —   │    │
+│  │                                                 │    │
+│  │ Acciones: [✓ Aprobar] [✏ Corregir] [✗ Excluir] │    │
+│  │ Comentario: ______________________________ (req)│    │
+│  └──────────────────────────────────────────────────┘    │
+│                                                          │
+│  NOVEDADES                                               │
+│  (nuevos, retirados filtrados por quincena)              │
+│                                                          │
+│                      [▶ Generar Reportes]                │
+└──────────────────────────────────────────────────────────┘
 ```
 
-### Elementos
-- Tarjetas de métricas: match exitoso, sin match, duplicados, cobertura
-- Tabla de registros sin match con acciones (Aprobar / Corregir / Excluir)
-- Cada acción requiere comentario obligatorio
-- Botón de avance condicionado
+### Métricas de cruce (siempre visibles)
+- Match: llaves presentes en ambas fuentes
+- Sin match: llaves en una fuente pero no en la otra
+- Duplicados: llaves repetidas
+- Cobertura: porcentaje de match sobre total
+
+### Métricas condicionales (visibles solo si aplican)
+- No Maestro: llaves en CC/Desc que no están en maestro (solo si maestro asignado)
+- Sin Actividad: llaves en maestro sin registros en CC ni Desc (solo si maestro asignado)
+
+### Resumen de conciliación
+- OK / Excedente / Faltante / Error con conteos
+
+### Cola de excepciones
+- Tabla sorteable por click en headers (Llave, Tipo, Concepto, Esperado, Real, Diferencia)
+- Indicadores de sort: ▲/▼ en header activo
+- Columna Tipo con badges de color:
+  - OK (verde), EXCEDENTE (naranja), FALTANTE (rojo), SIN_MATCH (azul)
+  - NO_MAESTRO (rojo oscuro), SIN_ACTIVIDAD (amarillo)
+  - DATA_QUALITY (violeta), ERROR (rojo)
+- Tooltips `?` en headers Esperado/Real: click-to-show (no hover), explican CC vs Desc
+- Cada excepción tiene botones de acción: Aprobar / Corregir / Excluir
+- Panel flotante de acción con comentario obligatorio (audit trail)
+- Botón "Generar Reportes" habilitado al resolver todas las excepciones
+
+### Novedades
+- Asociados nuevos (fecha_ingreso en quincena actual)
+- Asociados retirados (fecha_retiro en quincena actual)
+- Solo si maestro tiene columnas de fecha configuradas
 
 ---
 
-## 7. ETAPA 4 — CONCILIACIÓN + EXCEPCIONES
+## 7. ETAPA 4 — REPORTES
 
-### Contenido expandido
 ```
 ┌────────────────────────────────────────────────┐
-│ Etapa 4 · Conciliación              [● ACT]   │
-├────────────────────────────────────────────────┤
-│                                                │
-│  RESUMEN                                       │
-│  OK: N · EXCEDENTE: N · FALTANTE: N · ERROR: N│
-│                                                │
-│  COLA DE EXCEPCIONES                           │
-│  ┌──────────────────────────────────────────┐  │
-│  │ Llave │ Concepto │ Esperado │ Real │ Dif │  │
-│  │       │          │          │      │     │  │
-│  │ Acciones: [Aprobar] [Corregir] [Excluir] │  │
-│  │ Comentario: ________________________     │  │
-│  └──────────────────────────────────────────┘  │
-│                                                │
-│  NOVEDADES VS PERÍODO ANTERIOR                 │
-│  (nuevos, retirados, cambios de valor)         │
-│                                                │
-│              [▶ Generar Reportes]               │
-└────────────────────────────────────────────────┘
-```
-
-### Elementos
-- Resumen de estados (OK/EXCEDENTE/FALTANTE/ERROR) con conteo
-- Tabla de excepciones con: llave, concepto, valor esperado, valor real, diferencia
-- Acciones con comentario obligatorio
-- Sección de novedades detectadas automáticamente
-- Botón para generar reportes
-
----
-
-## 8. ETAPA 5 — REPORTES
-
-### Contenido expandido
-```
-┌────────────────────────────────────────────────┐
-│ Etapa 5 · Reportes                  [✓ OK]     │
+│ Etapa 4 · Reportes                  [✓ OK]     │
 ├────────────────────────────────────────────────┤
 │                                                │
 │  Archivos generados:                           │
 │  📄 resumen_ejecutivo          [⬇ Descargar]   │
 │  📄 excepciones_detalle        [⬇ Descargar]   │
-│  📄 cuenta_cobro_siguiente     [⬇ Descargar]   │
+│  📄 conciliacion_completa      [⬇ Descargar]   │
+│  📄 novedades                  [⬇ Descargar]   │
 │  📄 audit_log                  [⬇ Descargar]   │
-│  📄 extractos_individuales     [⬇ Descargar]   │
 │                                                │
 │           [⬇ Descargar todo (.zip)]             │
 └────────────────────────────────────────────────┘
 ```
 
+### Elementos
+- Lista de reportes generados con botón de descarga individual
+- Descarga masiva como .zip (JSZip)
+- Si hay carpeta de salida configurada en Etapa 1: escribe directo al disco
+
 ---
 
-## 9. LOG DE ACTIVIDAD
+## 8. LOG DE ACTIVIDAD
 
 ```
 ┌────────────────────────────────────────────────┐
 │ Log de actividad                               │
 ├────────────────────────────────────────────────┤
 │ 14:02  ✓ Entorno validado                      │
-│ 14:04  ✓ archivo1.txt — N registros OK         │
-│ 14:05  ⚠ archivo2.xlsx — N advertencias        │
-│ 14:05  ✗ archivo3.csv — columna X no encontrada│
-│ 14:08  Esperando resolución de errores...      │
+│ 14:04  ✓ emp1.txt — 1842 registros OK          │
+│ 14:05  ⚠ descuentos.xlsx — 2 advertencias      │
+│ 14:08  • Conciliación ejecutada                │
+│ 14:10  ✓ Reportes generados                    │
 └────────────────────────────────────────────────┘
 ```
 
-- Siempre visible al fondo
+- Siempre visible al fondo de la página
 - Scroll independiente
-- Cada entrada: timestamp + icono de nivel + mensaje
-- Colores: verde (OK), amarillo (advertencia), rojo (error), gris (info)
+- Cada entrada: timestamp HH:MM + icono de nivel + mensaje
+- Niveles: ok (✓ verde), warn (⚠ amarillo), error (✗ rojo), info (• gris)
 
 ---
 
-## 10. PALETA DE COLORES
+## 9. PALETA DE COLORES
 
 ### Semáforo de estados
 ```
@@ -324,6 +313,18 @@ ADVERTENCIA: amarillo — hay problemas menores, puede continuar
 ERROR      : rojo    — problemas bloqueantes, requiere acción
 INFO       : azul    — informativo, etapa activa
 LOCKED     : gris    — etapa pendiente, no disponible
+```
+
+### Badges de tipo de excepción
+```
+OK             : verde
+EXCEDENTE      : naranja
+FALTANTE       : rojo
+SIN_MATCH      : azul
+NO_MAESTRO     : rojo oscuro
+SIN_ACTIVIDAD  : amarillo
+DATA_QUALITY   : violeta
+ERROR          : rojo
 ```
 
 ### Tema
@@ -338,34 +339,43 @@ Monospace  : para datos, llaves, nombres de archivo
 
 ---
 
-## 11. COMPONENTES REUTILIZABLES
+## 10. COMPONENTES REUTILIZABLES
 
 ```
 Badge            : píldora con texto + color de estado
+Badge tipo       : variante para tipos de excepción (8 colores distintos)
 Tarjeta          : bloque con header clickeable + body expandible
-Tarjeta EDA      : variante de tarjeta con tabla de columnas (ok/warn/error)
-Tabla            : filas con hover, cabeceras uppercase
+Tarjeta EDA      : variante con tabla de columnas (ok/warn/error) + paginación
+Tabla            : filas con hover, cabeceras uppercase, sorteable por click
 Tabla compacta   : variante para EDA (font 0.75rem, padding reducido)
-Alerta           : barra con icono + mensaje + color de fondo
+Tabla matricial  : variante para mapeo de columnas (dropdowns en celdas)
+Alerta           : barra con icono + mensaje + color de fondo (info/warn/error)
 Botón primario   : fondo oscuro, texto blanco, deshabilitado si no aplica
 Botón ghost      : borde sutil, texto gris, hover con color
 Dot              : círculo de 6px con color de estado (ok/warn/error/info/locked/muted)
 Tag de archivo   : badge pequeño con tipo (TXT, CSV, XLSX)
 Tag de tipo      : badge de tipo de columna (texto gris, numérico azul, fecha violeta)
 Mini-bar         : barra de porcentaje de nulos (verde < 20%, amarillo < 50%, rojo ≥ 50%)
-Salida esperada  : ítem de output con dot + nombre + formato + estado
-Form de acción   : formulario inline para excepciones (comentario obligatorio)
+Tooltip popover  : click-to-show ? con popup informativo (no hover)
+Sort indicator   : ▲/▼ en header de tabla sorteable
+Form de acción   : panel flotante para excepciones (comentario obligatorio)
+Selector carpeta : File System Access API con ruta + estado (dot)
+Select numérico  : dropdown de separador decimal/miles
 ```
 
 ---
 
-## 12. INTERACCIONES CLAVE
+## 11. INTERACCIONES CLAVE
 
 ```
-Drag & drop     : subir archivos arrastrándolos a la zona de carga
-Click en etapa  : expande/colapsa (solo si está desbloqueada)
-Click en fuente : expande detalle de validación
-Mapear columnas : modal o inline para asignar columna_real → columna_sistema
+Seleccionar carpeta : File System Access API (showDirectoryPicker)
+Click en etapa      : expande/colapsa (solo si está desbloqueada)
+Click en tarjeta EDA: expande detalle de validación por columna
+Click en inválidos  : expande mini-tabla con filas/valores inválidos
+Click en ? tooltip  : muestra/oculta popover informativo
+Click en header tabla: ordena por esa columna (asc/desc toggle)
+Mapear columnas     : dropdown en tabla matricial (columna real → concepto)
 Aprobar/Corregir/Excluir : acciones sobre excepciones con comentario obligatorio
-Descargar       : genera y descarga archivos de reporte
+Descargar           : genera y descarga archivos de reporte
+Volver a analizar   : re-lee archivos de carpeta y re-ejecuta EDA
 ```

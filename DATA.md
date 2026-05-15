@@ -1,89 +1,100 @@
 # DATA.md — Modelo de Datos
 
-> Este archivo se completa cuando lleguen los archivos reales.
+> Los nombres reales de columnas se infieren de archivos reales.
 > NO inventar columnas, tipos ni llaves.
-
----
-
-## ESTADO: PENDIENTE DE ARCHIVOS REALES
 
 ---
 
 ## 1. FUENTES DE ENTRADA
 
-### Maestro de asociados
+### Roles de archivo (configurados por el analista en Etapa 2)
+
 ```
-Formato    : por confirmar
-Separador  : por confirmar
-Encoding   : por confirmar
-Columnas   : por confirmar (se infieren del archivo real)
-Llave      : por confirmar
+Cuenta de cobro (CC)   : lo que la cooperativa ESPERA recibir
+                         Puede ser 1 archivo (CSV/XLSX) o múltiples TXT (uno por empresa)
+                         Multi-TXT: misma estructura, se concatenan automáticamente
+
+Descuentos (Desc)      : lo que la empresa REALMENTE descontó
+                         Siempre 1 archivo (CSV/XLSX/TXT)
+
+Maestro                : fuente de verdad de asociados válidos
+                         Opcional pero recomendado
+                         Define el universo de llaves válidas para la conciliación
+                         Puede contener: fecha_ingreso, fecha_retiro (novedades)
+
+No usar                : archivo presente en la carpeta pero excluido del proceso
 ```
 
-### Maestro de ahorros
+### Detección automática por archivo
 ```
-Formato    : por confirmar
-Separador  : por confirmar
-Encoding   : por confirmar
-Columnas   : por confirmar
-Llave      : por confirmar
-```
-
-### Cuenta de cobro (período anterior)
-```
-Formato    : por confirmar
-Separador  : por confirmar
-Encoding   : por confirmar
-Columnas   : por confirmar
-Llave      : por confirmar
-```
-
-### Archivos de descuentos por empresa
-```
-Formato    : TXT (por confirmar)
-Separador  : | (por confirmar)
-Encoding   : por confirmar
-Columnas   : por confirmar
-Llave      : por confirmar
-Nota       : múltiples archivos, uno por empresa
-```
-
-### Catálogos de referencia
-```
-Formato    : CSV (por confirmar)
-Separador  : , (por confirmar)
-Nota       : fuente de verdad, no se valida contenido
+Formato    : TXT / CSV / XLSX (se infiere de la extensión)
+Separador  : | ; , \t (detectado automáticamente para TXT/CSV)
+Encoding   : UTF-8 / Latin-1 (detectado automáticamente)
+Columnas   : nombres reales del archivo (inferidos del header)
+Llave      : sugerida automáticamente (primera columna 0 nulos, 0 vacíos, 100% únicos)
 ```
 
 ---
 
-## 2. CONVENCIÓN DE NOMBRES (REFERENCIAL)
+## 2. CONCEPTOS FIJOS (5)
 
 ```
-Archivos TXT:
-  YYYYMMDD_CODIGO_NOMBRE-EMPRESA_descuentos.txt
-  YYYYMMDD_CODIGO_NOMBRE-EMPRESA_cuentacobro.txt
-
-Se confirma cuando lleguen los archivos reales.
+APORTES    →  descuento obligatorio por nómina
+AHORROS    →  ahorro voluntario autorizado
+SEGUROS    →  prima de seguro
+INCENTIVO  →  valor adicional (bono, auxilio, etc.)
+CREDITO    →  cuota de crédito activo por libranza
 ```
+
+Siempre estos 5. El analista mapea columnas reales de cada archivo a estos conceptos
+mediante la tabla matricial de mapeo en Etapa 2.
+
+### Campos opcionales (3)
+```
+nombre_asociado   →  nombre del asociado/empleado
+cod_empresa       →  código de la empresa/convenio
+nombre_empresa    →  nombre de la empresa
+```
+
+Estos campos enriquecen los reportes pero no participan en la conciliación numérica.
 
 ---
 
-## 3. MAPEO DE COLUMNAS
+## 3. MAPEO DE COLUMNAS (tabla matricial)
 
-Se define tras el primer EDA con archivos reales.
-El analista confirma o ajusta el mapeo en la UI.
+El analista configura el mapeo en una tabla matricial única:
 
 ```
-archivo → columna_real → columna_sistema → tipo → nullable
-(por completar)
+┌─────────────┬──────────┬──────────┬──────────┬─────────┬─────────┬─────────┬───────────┬─────────┐
+│ Archivo     │ Nombre   │ Cod.emp. │ Nom.emp. │ APORTES │ AHORROS │ SEGUROS │ INCENTIVO │ CREDITO │
+├─────────────┼──────────┼──────────┼──────────┼─────────┼─────────┼─────────┼───────────┼─────────┤
+│ Maestro     │ [col ▼]  │ [col ▼]  │ [col ▼]  │ [col ▼] │ [col ▼] │ [col ▼] │ [col ▼]   │ [col ▼] │
+│ CC          │ [col ▼]  │ [col ▼]  │ [col ▼]  │ [col ▼] │ [col ▼] │ [col ▼] │ [col ▼]   │ [col ▼] │
+│ Desc        │ [col ▼]  │ [col ▼]  │ [col ▼]  │ [col ▼] │ [col ▼] │ [col ▼] │ [col ▼]   │ [col ▼] │
+└─────────────┴──────────┴──────────┴──────────┴─────────┴─────────┴─────────┴───────────┴─────────┘
 ```
+
+- Filas: Maestro (si existe, siempre primero) → CC → Desc
+- Columnas: campos opcionales (3) → conceptos fijos (5)
+- Cada celda es un dropdown con las columnas reales del archivo
+- Multi-TXT CC: 1 sola fila (usan columnas del primer archivo, misma estructura)
+- Auto-selección: si nombre de columna coincide con concepto, se selecciona automáticamente
+- Defaults: Maestro todo "— No usar —"; CC/Desc conceptos "— Seleccionar —", opcionales "— No usar —"
+
+### Renombrado en el bridge
+El bridge renombra las columnas reales a nombres canónicos antes de pasar a Python:
+```
+mapping { APORTES: 'COL_APO', CREDITO: 'CUOTA' }
+    → rename_dict { 'COL_APO': 'APORTES', 'CUOTA': 'CREDITO' }
+    → df.rename(columns=rename_dict)
+```
+Python siempre recibe DataFrames con nombres canónicos (APORTES, AHORROS, etc.).
 
 ---
 
 ## 4. DETECCIÓN AUTOMÁTICA (EDA)
 
-Al subir un archivo, el sistema detecta automáticamente:
+Al seleccionar la carpeta de entrada, el sistema detecta automáticamente:
 
 ```
 Por archivo:
@@ -94,11 +105,18 @@ Por archivo:
 
 Por columna:
   - Tipo: texto / numérico / fecha
+  - Validación numérica locale-aware (separador decimal configurable en Etapa 1)
   - Formato inconsistente (ej: mezcla de 1.234,56 y 1234.56)
+  - Conteo de inválidos (valores que no parsean según tipo detectado)
   - Nulos (NaN) y vacíos (cadena vacía)
   - Porcentaje de nulos+vacíos (umbral 20% warn, 50% crítico)
   - Valores únicos
   - Muestra de hasta 5 valores (preserva ceros iniciales)
+
+Detalle de inválidos:
+  - Click en conteo de inválidos → mini-tabla expandible: Fila / Valor
+  - Cap 50 registros por columna
+  - Paginación si hay más columnas de las visibles
 
 Llave sugerida:
   - Primera columna con 0 nulos, 0 vacíos y todos los valores únicos
@@ -106,7 +124,7 @@ Llave sugerida:
 
 Tipos detectados:
   - texto    : no es numérico ni fecha, o tiene ceros iniciales (cédulas, códigos)
-  - numérico : parseable como número, sin ceros iniciales
+  - numérico : parseable como número, sin ceros iniciales, locale-aware
   - fecha    : matchea alguno de 8 formatos (ISO, dd/mm/yyyy, etc.) o parsing flexible
 ```
 
@@ -118,23 +136,45 @@ Tipos detectados:
 Antes del cruce, el analista configura en Etapa 2:
 
 Por archivo:
-  - Rol: Cuenta de cobro / Descuentos / Período anterior / No usar
+  - Rol: Cuenta de cobro / Descuentos / Maestro / No usar
   - Columna llave (default = llave sugerida del EDA)
 
-Columnas de concepto:
-  - Columnas numéricas compartidas entre CC y Desc
-  - El analista selecciona cuáles comparar (checkboxes)
+Mapeo de columnas (tabla matricial):
+  - El analista mapea columnas reales a los 5 conceptos fijos + 3 opcionales
+  - Los conceptos conciliados = intersección de lo mapeado en CC y Desc
+
+Maestro (si se asigna):
+  - Define el universo de llaves válidas
+  - Llaves en CC/Desc que no están en Maestro → NO_MAESTRO
+  - Llaves en Maestro sin actividad en CC ni Desc → SIN_ACTIVIDAD
+  - Columnas fecha_ingreso y fecha_retiro → novedades
 
 Validación requerida:
-  - Exactamente 1 archivo como Cuenta de cobro
+  - Al menos 1 archivo como Cuenta de cobro (puede ser multi-TXT)
   - Exactamente 1 archivo como Descuentos
   - Llave seleccionada en archivos activos
-  - Al menos 1 columna de concepto seleccionada
+  - Al menos 1 concepto mapeado en ambos (CC y Desc)
+  - Si multi-CC: todos deben ser TXT
 ```
 
 ---
 
-## 6. SALIDAS GENERADAS
+## 6. ESTADOS DE CONCILIACIÓN
+
+```
+OK             : valores coinciden exactamente
+EXCEDENTE      : empresa descontó más de lo esperado (Desc > CC)
+FALTANTE       : empresa descontó menos de lo esperado (Desc < CC)
+SIN_MATCH      : llave presente en una fuente pero no en la otra
+NO_MAESTRO     : llave no encontrada en el archivo maestro
+SIN_ACTIVIDAD  : llave en maestro pero sin registros en CC ni Desc
+DATA_QUALITY   : dato con problema de calidad (inválido en origen)
+ERROR          : dato inválido que impide comparación
+```
+
+---
+
+## 7. SALIDAS GENERADAS
 
 ```
 Resumen ejecutivo         (.xlsx)  — Conteos OK/Excedente/Faltante/Sin Match/Error
@@ -146,7 +186,7 @@ Log de auditoría          (.xlsx)  — Registro de todas las acciones y decisio
 
 ---
 
-## 6. NOTAS
+## 8. NOTAS
 
 - Todo lo que dice "por confirmar" se resuelve al subir el primer archivo real
 - El sistema infiere columnas y tipos automáticamente (ver sección 4)
