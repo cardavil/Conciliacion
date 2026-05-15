@@ -198,7 +198,7 @@ const App = (() => {
     );
 
     var next = stageNum + 1;
-    if (next <= 5) {
+    if (next <= 4) {
       setStageState(next, 'active');
       addLog('info', 'Etapa ' + next + ' desbloqueada');
     }
@@ -977,64 +977,22 @@ const App = (() => {
   }
 
   /* ============================================
-     RENDERIZADO: ETAPA 3 — CRUCE
-     ============================================ */
-
-  function renderCrossCheck(results) {
-    var m = $('#metrica-match');
-    var sm = $('#metrica-sin-match');
-    var d = $('#metrica-duplicados');
-    var c = $('#metrica-cobertura');
-
-    if (m) m.textContent = results.match != null ? results.match : 0;
-    if (sm) sm.textContent = results.sinMatch != null ? results.sinMatch : 0;
-    if (d) d.textContent = results.duplicados != null ? results.duplicados : 0;
-    if (c) c.textContent = (results.cobertura != null ? results.cobertura : 0) + '%';
-
-    var tbody = $('#sin-match-body');
-    if (tbody) {
-      tbody.innerHTML = '';
-      var items = results.detalles || [];
-      for (var i = 0; i < items.length; i++) {
-        var item = items[i];
-        var tr = document.createElement('tr');
-
-        var tdLlave = document.createElement('td');
-        tdLlave.textContent = item.llave;
-
-        var tdPresente = document.createElement('td');
-        tdPresente.textContent = item.presenteEn;
-
-        var tdMonto = document.createElement('td');
-        tdMonto.textContent = item.monto;
-
-        var tdAccion = document.createElement('td');
-        tdAccion.className = 'excepcion-acciones';
-        renderActionButtons(tdAccion, item.llave, 'cruce');
-
-        tr.appendChild(tdLlave);
-        tr.appendChild(tdPresente);
-        tr.appendChild(tdMonto);
-        tr.appendChild(tdAccion);
-        tbody.appendChild(tr);
-      }
-    }
-
-    var btn = $('#etapa-3 .boton--primario');
-    if (btn) {
-      var coberturaError = results.cobertura != null && results.cobertura < 50;
-      btn.disabled = coberturaError;
-    }
-
-    addLog('info', 'Cruce: ' + (results.match || 0) + ' coincidencias, ' +
-      (results.sinMatch || 0) + ' sin match');
-  }
-
-  /* ============================================
-     RENDERIZADO: ETAPA 4 — CONCILIACION
+     RENDERIZADO: ETAPA 3 — CONCILIACION
      ============================================ */
 
   function renderConciliation(results) {
+    var periodoEl = $('#periodo-valor');
+    if (periodoEl) periodoEl.textContent = results.periodo || '';
+
+    var mEl = $('#metrica-match');
+    var smEl = $('#metrica-sin-match');
+    var dEl = $('#metrica-duplicados');
+    var cEl = $('#metrica-cobertura');
+    if (mEl) mEl.textContent = results.match != null ? results.match : 0;
+    if (smEl) smEl.textContent = results.sinMatch != null ? results.sinMatch : 0;
+    if (dEl) dEl.textContent = results.duplicados != null ? results.duplicados : 0;
+    if (cEl) cEl.textContent = (results.cobertura != null ? results.cobertura : 0) + '%';
+
     var okEl = $('#resumen-ok');
     var excEl = $('#resumen-excedente');
     var falEl = $('#resumen-faltante');
@@ -1095,7 +1053,7 @@ const App = (() => {
     }
 
     // Boton de avance
-    var btn = $('#etapa-4 .boton--primario');
+    var btn = $('#etapa-3 .boton--primario');
     if (btn) {
       btn.disabled = (results.excepciones || []).length > 0;
     }
@@ -1106,7 +1064,7 @@ const App = (() => {
   }
 
   /* ============================================
-     RENDERIZADO: ETAPA 5 — REPORTES
+     RENDERIZADO: ETAPA 4 — REPORTES
      ============================================ */
 
   function renderReports(reports) {
@@ -1138,7 +1096,7 @@ const App = (() => {
       lista.appendChild(li);
     }
 
-    var btnAll = $('#etapa-5 .boton--primario');
+    var btnAll = $('#etapa-4 .boton--primario');
     if (btnAll) {
       btnAll.disabled = (state.reportBlobs.length === 0);
       btnAll.textContent = state.outputDirHandle
@@ -1258,8 +1216,7 @@ const App = (() => {
   }
 
   function checkAllExceptionsResolved(context) {
-    var stageNum = (context === 'cruce') ? 3 : 4;
-    var section = $('#etapa-' + stageNum);
+    var section = $('#etapa-3');
     if (!section) return;
 
     var cells = section.querySelectorAll('.excepcion-acciones');
@@ -1414,12 +1371,6 @@ const App = (() => {
       if (!section) return;
       var stageNum = parseInt(section.dataset.stage, 10);
 
-      // Etapa 5: descargar todo
-      if (stageNum === 5) {
-        writeAllToOutput();
-        return;
-      }
-
       // Etapa 1: avanzar y disparar EDA en etapa 2
       if (stageNum === 1) {
         completeStage(1, 'ok');
@@ -1427,6 +1378,7 @@ const App = (() => {
         return;
       }
 
+      // Etapa 2: avanzar y disparar conciliacion en etapa 3
       if (stageNum === 2) {
         if (!state.crossConfig) {
           addLog('error', 'Completa la configuracion de cruce antes de continuar');
@@ -1435,29 +1387,26 @@ const App = (() => {
         btn.disabled = true;
         btn.textContent = 'Procesando...';
         completeStage(2, 'ok');
-        runCrossValidation().finally(function () {
+        runConciliation().finally(function () {
           btn.textContent = 'Continuar a Etapa 3';
         });
         return;
       }
 
+      // Etapa 3: generar reportes en etapa 4
       if (stageNum === 3) {
         btn.disabled = true;
         btn.textContent = 'Procesando...';
         completeStage(3, 'ok');
-        runConciliation().finally(function () {
-          btn.textContent = 'Continuar a Etapa 4';
+        runReports().finally(function () {
+          btn.textContent = 'Generar Reportes';
         });
         return;
       }
 
+      // Etapa 4: descargar todo
       if (stageNum === 4) {
-        btn.disabled = true;
-        btn.textContent = 'Procesando...';
-        completeStage(4, 'ok');
-        runReports().finally(function () {
-          btn.textContent = 'Generar Reportes';
-        });
+        writeAllToOutput();
         return;
       }
     });
@@ -1489,7 +1438,6 @@ const App = (() => {
     btn.addEventListener('click', function () {
       setStageState(3, 'locked');
       setStageState(4, 'locked');
-      setStageState(5, 'locked');
 
       state.crossConfig = null;
       state.conciliationResult = null;
@@ -1557,46 +1505,7 @@ const App = (() => {
   }
 
   /* ============================================
-     ETAPA 3: VALIDACION CRUZADA
-     ============================================ */
-
-  async function runCrossValidation() {
-    var config = state.crossConfig;
-    if (!config) {
-      addLog('error', 'Configuracion de cruce no definida');
-      return;
-    }
-
-    var selectDecimal = document.getElementById('select-decimal');
-    config.decimalSep = selectDecimal ? selectDecimal.value : ',';
-
-    addLog('info', 'Ejecutando validacion cruzada...');
-
-    try {
-      var result = await PyBridge.crossValidate(config);
-      var datos = result.datos || {};
-      var transformed = {
-        match: datos.match || 0,
-        sinMatch: datos.sin_match || 0,
-        duplicados: datos.duplicados || 0,
-        cobertura: datos.cobertura || 0,
-        detalles: (datos.detalles || []).map(function (d) {
-          return {
-            llave: d.llave,
-            presenteEn: d.presente_en,
-            monto: d.monto || '',
-            tipo: 'sin_match'
-          };
-        })
-      };
-      renderCrossCheck(transformed);
-    } catch (err) {
-      addLog('error', 'Error en validacion cruzada: ' + (err.message || err));
-    }
-  }
-
-  /* ============================================
-     ETAPA 4: CONCILIACION
+     ETAPA 3: CONCILIACION
      ============================================ */
 
   async function runConciliation() {
@@ -1613,12 +1522,17 @@ const App = (() => {
       state.conciliationResult = result;
       var datos = result.datos || {};
       var transformed = {
+        match: datos.match || 0,
+        sinMatch: datos.sin_match || 0,
+        duplicados: datos.duplicados || 0,
+        cobertura: datos.cobertura || 0,
         ok: datos.ok || 0,
         excedente: datos.excedente || 0,
         faltante: datos.faltante || 0,
         error: datos.error || 0,
         excepciones: datos.excepciones || [],
-        novedades: datos.novedades || []
+        novedades: datos.novedades || [],
+        periodo: datos.periodo || ''
       };
       renderConciliation(transformed);
     } catch (err) {
@@ -1627,7 +1541,7 @@ const App = (() => {
   }
 
   /* ============================================
-     ETAPA 5: REPORTES
+     ETAPA 4: REPORTES
      ============================================ */
 
   async function runReports() {
@@ -1684,7 +1598,7 @@ const App = (() => {
 
     // Configurar estados iniciales
     setStageState(1, 'active');
-    for (var i = 2; i <= 5; i++) {
+    for (var i = 2; i <= 4; i++) {
       setStageState(i, 'locked');
     }
 
@@ -1711,7 +1625,6 @@ const App = (() => {
     renderFileList: renderFileList,
     renderEDA: renderEDA,
 
-    renderCrossCheck: renderCrossCheck,
     renderConciliation: renderConciliation,
     renderReports: renderReports,
     getFiles: function () { return state.files; },

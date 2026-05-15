@@ -71,7 +71,7 @@ God-file     : Un solo HTML que funciona offline (se genera al final)
 
 ---
 
-## 3. FLUJO DE EJECUCIÓN — 5 ETAPAS
+## 3. FLUJO DE EJECUCIÓN — 4 ETAPAS
 
 ```
 ETAPA 1 — Revisión de Entorno
@@ -90,21 +90,17 @@ ETAPA 2 — Validación por Fuente
   Configuración de cruce: rol por archivo (CC/Desc/Maestro), llave, conceptos
   Botón "Continuar a Etapa 3" habilitado solo con config válida
 
-ETAPA 3 — Validación Cruzada
+ETAPA 3 — Conciliación
   Ejecutada automáticamente al avanzar desde Etapa 2
-  Métricas: match, sin match, duplicados, cobertura (%)
-  Tabla de registros sin match con acciones (Aprobar/Corregir/Excluir)
+  Métricas de cruce: match, sin match, duplicados, cobertura (%)
+  Métricas de conciliación: OK, Excedente, Faltante, Error
+  Cola de excepciones unificada (SIN_MATCH + EXCEDENTE + FALTANTE + ERROR + DATA_QUALITY)
   Cada acción requiere comentario obligatorio (audit trail)
-
-ETAPA 4 — Conciliación + Excepciones
-  Ejecutada automáticamente al avanzar desde Etapa 3
-  Cruce por llave y conceptos: OK / EXCEDENTE / FALTANTE / SIN_MATCH
-  Cola de excepciones con acciones del analista (comentario obligatorio)
-  Novedades desde maestro: retirados (fecha_retiro), nuevos (fecha_ingreso)
+  Novedades desde maestro: retirados (fecha_retiro), nuevos (fecha_ingreso) filtrados por quincena
   Botón "Generar Reportes" habilitado al resolver todas las excepciones
 
-ETAPA 5 — Reportes
-  Generación automática al avanzar desde Etapa 4
+ETAPA 4 — Reportes
+  Generación automática al avanzar desde Etapa 3
   Salidas: resumen ejecutivo, excepciones, conciliación completa, novedades, audit log
   Descarga individual o todo como .zip
   Si hay carpeta de salida: escribe directo al disco

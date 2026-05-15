@@ -667,6 +667,30 @@ body {
 }
 
 /* ============================================
+   PERIODO CARD
+   ============================================ */
+
+.periodo-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--info-bg);
+  border: 1px solid var(--info);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+  font-size: 0.875rem;
+}
+
+.periodo-card__label {
+  color: var(--text-muted);
+}
+
+.periodo-card__valor {
+  color: var(--text-main);
+}
+
+/* ============================================
    RESUMEN DE ESTADOS
    ============================================ */
 

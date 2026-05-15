@@ -380,25 +380,7 @@ const PyBridge = (() => {
   }
 
   /* ============================================
-     ETAPA 3: VALIDACION CRUZADA
-     ============================================ */
-
-  async function crossValidate(config) {
-    var pyCode = '';
-    pyCode += '_vc_cc = leer_archivo("/uploads/' + escapePyString(config.cc.name) + '")\n';
-    pyCode += '_vc_desc = leer_archivo("/uploads/' + escapePyString(config.desc.name) + '")\n';
-    pyCode += '_vc_fuentes = {\n';
-    pyCode += '  "' + escapePyString(config.cc.name) + '": {"df": _vc_cc, "llave": "' + escapePyString(config.cc.llave) + '"},\n';
-    pyCode += '  "' + escapePyString(config.desc.name) + '": {"df": _vc_desc, "llave": "' + escapePyString(config.desc.llave) + '"},\n';
-    pyCode += '}\n';
-    pyCode += 'resultado_a_json(validar_cruzado(_vc_fuentes, decimal_sep="' + escapePyString(config.decimalSep || ',') + '"))';
-
-    var resultJson = await callPythonSimple(pyCode);
-    return JSON.parse(resultJson);
-  }
-
-  /* ============================================
-     ETAPA 4: CONCILIACION
+     ETAPA 3: CONCILIACION
      ============================================ */
 
   async function conciliate(config) {
@@ -428,7 +410,7 @@ const PyBridge = (() => {
   }
 
   /* ============================================
-     ETAPA 5: REPORTES
+     ETAPA 4: REPORTES
      ============================================ */
 
   async function generateReports(concResult, auditTrail) {
@@ -472,7 +454,6 @@ const PyBridge = (() => {
     readGeneratedFiles: readGeneratedFiles,
     analyzeFile: analyzeFile,
     analyzeAllFiles: analyzeAllFiles,
-    crossValidate: crossValidate,
     conciliate: conciliate,
     generateReports: generateReports,
     isReady: function () { return ready; }

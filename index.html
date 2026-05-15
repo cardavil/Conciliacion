@@ -163,18 +163,24 @@
       </div>
     </section>
 
-    <!-- Etapa 3: Validacion Cruzada -->
+    <!-- Etapa 3: Conciliacion -->
     <section id="etapa-3" class="etapa" data-stage="3" data-state="locked">
       <header class="etapa__header" role="button" tabindex="0"
               aria-expanded="false" aria-controls="etapa-3-body">
         <span class="etapa__numero">3</span>
-        <span class="etapa__titulo">Validacion Cruzada</span>
+        <span class="etapa__titulo">Conciliacion</span>
         <span class="etapa__badge" aria-label="Estado de la etapa"></span>
       </header>
       <div id="etapa-3-body" class="etapa__body" role="region"
            aria-labelledby="etapa-3" hidden>
 
-        <!-- Tarjetas de metricas -->
+        <!-- Periodo activo -->
+        <div class="periodo-card" id="periodo-card" aria-label="Periodo activo">
+          <span class="periodo-card__label">Periodo:</span>
+          <strong class="periodo-card__valor" id="periodo-valor"></strong>
+        </div>
+
+        <!-- Metricas de cruce -->
         <div class="metricas">
           <div class="metrica" aria-label="Registros con match">
             <span class="metrica__valor" id="metrica-match">0</span>
@@ -194,41 +200,7 @@
           </div>
         </div>
 
-        <!-- Detalle de registros sin match -->
-        <div class="detalle-sin-match">
-          <h3 class="detalle-sin-match__titulo">Detalle sin match</h3>
-          <table class="tabla" aria-label="Registros sin match">
-            <thead>
-              <tr>
-                <th scope="col">Llave</th>
-                <th scope="col">Presente en</th>
-                <th scope="col">Monto</th>
-                <th scope="col">Accion</th>
-              </tr>
-            </thead>
-            <tbody id="sin-match-body"></tbody>
-          </table>
-        </div>
-
-        <div class="etapa__acciones">
-          <button class="boton boton--primario" type="button" disabled
-                  aria-label="Continuar a etapa 4">Continuar a Etapa 4</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Etapa 4: Conciliacion y Excepciones -->
-    <section id="etapa-4" class="etapa" data-stage="4" data-state="locked">
-      <header class="etapa__header" role="button" tabindex="0"
-              aria-expanded="false" aria-controls="etapa-4-body">
-        <span class="etapa__numero">4</span>
-        <span class="etapa__titulo">Conciliacion</span>
-        <span class="etapa__badge" aria-label="Estado de la etapa"></span>
-      </header>
-      <div id="etapa-4-body" class="etapa__body" role="region"
-           aria-labelledby="etapa-4" hidden>
-
-        <!-- Resumen de estados -->
+        <!-- Resumen de conciliacion -->
         <div class="resumen-estados" aria-label="Resumen de conciliacion">
           <span class="resumen-estados__item" data-tipo="ok">OK: <strong id="resumen-ok">0</strong></span>
           <span class="resumen-estados__item" data-tipo="excedente">Excedente: <strong id="resumen-excedente">0</strong></span>
@@ -254,9 +226,9 @@
           </table>
         </div>
 
-        <!-- Novedades vs periodo anterior -->
+        <!-- Novedades -->
         <div class="novedades">
-          <h3 class="novedades__titulo">Novedades vs periodo anterior</h3>
+          <h3 class="novedades__titulo">Novedades</h3>
           <div id="novedades-lista"></div>
         </div>
 
@@ -267,16 +239,16 @@
       </div>
     </section>
 
-    <!-- Etapa 5: Reportes -->
-    <section id="etapa-5" class="etapa" data-stage="5" data-state="locked">
+    <!-- Etapa 4: Reportes -->
+    <section id="etapa-4" class="etapa" data-stage="4" data-state="locked">
       <header class="etapa__header" role="button" tabindex="0"
-              aria-expanded="false" aria-controls="etapa-5-body">
-        <span class="etapa__numero">5</span>
+              aria-expanded="false" aria-controls="etapa-4-body">
+        <span class="etapa__numero">4</span>
         <span class="etapa__titulo">Reportes</span>
         <span class="etapa__badge" aria-label="Estado de la etapa"></span>
       </header>
-      <div id="etapa-5-body" class="etapa__body" role="region"
-           aria-labelledby="etapa-5" hidden>
+      <div id="etapa-4-body" class="etapa__body" role="region"
+           aria-labelledby="etapa-4" hidden>
 
         <!-- Lista de reportes generados -->
         <div class="reportes">

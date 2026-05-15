@@ -8,7 +8,8 @@ import pandas as pd
 import json
 import os
 from io import BytesIO
-from datetime import datetime
+from datetime import datetime, date
+import calendar
 
 
 MAX_DETALLE_INVALIDOS = 50
@@ -160,6 +161,33 @@ FORMATOS_FECHA = [
     "%Y%m%d", "%d-%m-%Y", "%d.%m.%Y",
     "%Y-%m-%d %H:%M:%S", "%d/%m/%Y %H:%M:%S",
 ]
+
+
+def _parsear_fecha(valor):
+    s = str(valor).strip()
+    if not s:
+        return None
+    for fmt in FORMATOS_FECHA:
+        try:
+            return datetime.strptime(s, fmt).date()
+        except (ValueError, TypeError):
+            continue
+    try:
+        resultado = pd.to_datetime(s, errors="coerce", dayfirst=True)
+        if pd.notna(resultado):
+            return resultado.date()
+    except Exception:
+        pass
+    return None
+
+
+def _quincena_actual():
+    hoy = date.today()
+    if hoy.day <= 15:
+        return date(hoy.year, hoy.month, 1), date(hoy.year, hoy.month, 15)
+    ultimo_dia = calendar.monthrange(hoy.year, hoy.month)[1]
+    return date(hoy.year, hoy.month, 16), date(hoy.year, hoy.month, ultimo_dia)
+
 
 def _es_numero_valido(val, decimal_sep=","):
     s = str(val).strip()
@@ -575,116 +603,7 @@ def validar_fuente(nombre, ruta, perfil=None, decimal_sep=","):
 
 
 # ============================================
-# ETAPA 3 — VALIDACION CRUZADA
-# ============================================
-
-def validar_cruzado(fuentes, decimal_sep=","):
-    """
-    Recibe dict de {nombre: {"df": DataFrame, "llave": str}}.
-    Cruza llaves entre fuentes para detectar registros sin match y
-    duplicados cruzados.
-    Retorna: metricas, registros sin match, estado.
-    """
-    mensajes = []
-    nombres = list(fuentes.keys())
-
-    if len(nombres) < 2:
-        mensajes.append(_msg("warn", "Se necesitan al menos 2 fuentes para cruce"))
-        return _respuesta("warn", mensajes, {
-            "match": 0, "sin_match": 0, "duplicados": 0,
-            "cobertura": 0, "detalles": []
-        })
-
-    # Recolectar todas las llaves por fuente
-    llaves_por_fuente = {}
-    for nombre in nombres:
-        info = fuentes[nombre]
-        df = info["df"]
-        llave_col = info.get("llave")
-        if llave_col and llave_col in df.columns:
-            vals = df[llave_col].astype(str)
-            llaves_por_fuente[nombre] = set(vals[vals.str.strip() != ""].unique())
-        else:
-            llaves_por_fuente[nombre] = set()
-            mensajes.append(_msg("warn", "{}: sin columna llave definida".format(nombre)))
-
-    # Cruzar: encontrar union e interseccion de llaves
-    todas_llaves = set()
-    for s in llaves_por_fuente.values():
-        todas_llaves |= s
-
-    if not todas_llaves:
-        mensajes.append(_msg("error", "No se encontraron llaves para cruzar"))
-        return _respuesta("error", mensajes, {
-            "match": 0, "sin_match": 0, "duplicados": 0,
-            "cobertura": 0, "detalles": []
-        })
-
-    # Interseccion de todas las fuentes
-    comun = set(todas_llaves)
-    for s in llaves_por_fuente.values():
-        comun &= s
-
-    sin_match_detalles = []
-    for llave_val in sorted(todas_llaves - comun):
-        presente_en = []
-        ausente_en = []
-        for nombre in nombres:
-            if llave_val in llaves_por_fuente[nombre]:
-                presente_en.append(nombre)
-            else:
-                ausente_en.append(nombre)
-        sin_match_detalles.append({
-            "llave": llave_val,
-            "presente_en": ", ".join(presente_en),
-            "ausente_en": ", ".join(ausente_en),
-            "monto": "",
-        })
-
-    # Detectar duplicados cruzados (misma llave en misma fuente)
-    n_duplicados = 0
-    for nombre in nombres:
-        info = fuentes[nombre]
-        df = info["df"]
-        llave_col = info.get("llave")
-        if llave_col and llave_col in df.columns:
-            llave_vals = df[llave_col].astype(str)
-            llave_vals = llave_vals[llave_vals.str.strip() != ""]
-            n_dup = int(llave_vals.duplicated().sum())
-            n_duplicados += n_dup
-            if n_dup > 0:
-                mensajes.append(_msg("warn", "{}: {} llaves duplicadas".format(
-                    nombre, n_dup
-                )))
-
-    n_match = len(comun)
-    n_sin_match = len(todas_llaves) - n_match
-    cobertura = round(n_match / len(todas_llaves) * 100, 1) if todas_llaves else 0
-
-    estado = "ok"
-    if n_sin_match > 0:
-        estado = "warn"
-    if cobertura < 50:
-        estado = "error"
-        mensajes.append(_msg("error", "Cobertura inferior al 50%"))
-
-    mensajes.append(_msg("info", "{} llaves en comun, {} sin match, cobertura {:.1f}%".format(
-        n_match, n_sin_match, cobertura
-    )))
-
-    datos = {
-        "match": n_match,
-        "sin_match": n_sin_match,
-        "duplicados": n_duplicados,
-        "cobertura": cobertura,
-        "detalles": sin_match_detalles,
-    }
-
-    return _respuesta(estado, mensajes, datos)
-
-
-# ============================================
-# ETAPA 4 — CONCILIACION
+# ETAPA 3 — CONCILIACION
 # ============================================
 
 def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_cfg=None):
@@ -731,6 +650,17 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
     llaves_cc = set(cc[llave].unique())
     llaves_desc = set(desc[llave].unique())
     todas = llaves_cc | llaves_desc
+
+    n_match = len(llaves_cc & llaves_desc)
+    cobertura = round(n_match / len(todas) * 100, 1) if todas else 0
+
+    n_duplicados = 0
+    for nombre_src, df_src in [("CC", cc), ("Desc", desc)]:
+        vals = df_src[llave][df_src[llave].str.strip() != ""]
+        n_dup = int(vals.duplicated().sum())
+        n_duplicados += n_dup
+        if n_dup > 0:
+            mensajes.append(_msg("warn", "{}: {} llaves duplicadas".format(nombre_src, n_dup)))
 
     conteo = {"ok": 0, "excedente": 0, "faltante": 0, "sin_match": 0, "error": 0}
 
@@ -846,6 +776,7 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
         col_llave_m = maestro_cfg.get("llave", llave)
         col_retiro = maestro_cfg.get("col_fecha_retiro")
         col_ingreso = maestro_cfg.get("col_fecha_ingreso")
+        inicio_q, fin_q = _quincena_actual()
 
         if col_llave_m in m.columns:
             m[col_llave_m] = m[col_llave_m].astype(str).str.strip()
@@ -854,26 +785,69 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
                 retiro_mask = m[col_retiro].astype(str).str.strip() != ""
                 for _, fila in m[retiro_mask].iterrows():
                     lv = str(fila[col_llave_m])
+                    fecha = _parsear_fecha(fila[col_retiro])
+                    msg = "Asociado retirado: {} (retiro: {})".format(
+                        lv, fila[col_retiro])
+                    if fecha is None:
+                        msg += " — fecha no reconocida"
+                        mensajes.append(_msg("warn",
+                            "Retiro {}: fecha no reconocida '{}'".format(
+                                lv, fila[col_retiro])))
+                    elif not (inicio_q <= fecha <= fin_q):
+                        msg += " — fecha fuera del periodo actual ({} a {})".format(
+                            inicio_q, fin_q)
+                        mensajes.append(_msg("warn",
+                            "Retiro {}: fecha {} fuera del periodo {}/{}".format(
+                                lv, fecha, inicio_q, fin_q)))
                     novedades.append({
                         "llave": lv,
                         "tipo": "RETIRO",
-                        "mensaje": "Asociado retirado: {} (retiro: {})".format(
-                            lv, fila[col_retiro]),
+                        "mensaje": msg,
                     })
 
             if col_ingreso and col_ingreso in m.columns:
-                ingreso_mask = m[col_ingreso].astype(str).str.strip() != ""
-                if col_retiro and col_retiro in m.columns:
-                    ingreso_mask = ingreso_mask & (
-                        m[col_retiro].astype(str).str.strip() == "")
-                for _, fila in m[ingreso_mask].iterrows():
+                for _, fila in m.iterrows():
+                    raw_ingreso = str(fila[col_ingreso]).strip()
+                    if not raw_ingreso:
+                        continue
+                    raw_retiro = str(fila.get(col_retiro, "")).strip() if col_retiro and col_retiro in m.columns else ""
+                    if raw_retiro:
+                        continue
                     lv = str(fila[col_llave_m])
+                    fecha = _parsear_fecha(raw_ingreso)
+                    if fecha is None:
+                        mensajes.append(_msg("warn",
+                            "Ingreso {}: fecha no reconocida '{}'".format(
+                                lv, raw_ingreso)))
+                        continue
+                    if not (inicio_q <= fecha <= fin_q):
+                        continue
                     novedades.append({
                         "llave": lv,
                         "tipo": "NUEVO",
                         "mensaje": "Asociado nuevo: {} (ingreso: {})".format(
-                            lv, fila[col_ingreso]),
+                            lv, raw_ingreso),
                     })
+
+            # Validar llaves del maestro contra CC/Desc
+            llaves_conc = llaves_cc | llaves_desc
+            for nov in novedades:
+                lv = nov["llave"]
+                if lv not in llaves_conc:
+                    excepciones.append({
+                        "llave": lv,
+                        "concepto": "(maestro)",
+                        "esperado": "presente en CC o Desc",
+                        "real": "no encontrada",
+                        "diferencia": nov["tipo"],
+                        "tipo": "DATA_QUALITY",
+                    })
+                    mensajes.append(_msg("warn",
+                        "Llave {} del maestro no coincide con CC ni Desc".format(lv)))
+
+    # Contar excepciones DATA_QUALITY como errores
+    n_data_quality = sum(1 for e in excepciones if e.get("tipo") == "DATA_QUALITY")
+    conteo["error"] += n_data_quality
 
     # Estado general
     estado = "ok"
@@ -890,22 +864,35 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
     if novedades:
         mensajes.append(_msg("info", "{} novedad(es) detectada(s)".format(len(novedades))))
 
+    inicio_q, fin_q = _quincena_actual()
+    quincena_num = 1 if inicio_q.day <= 15 else 2
+    meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun",
+             "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+    periodo_label = "{} {}-{}, {} — Quincena {}".format(
+        meses[inicio_q.month - 1], inicio_q.day, fin_q.day,
+        inicio_q.year, quincena_num)
+
     datos = {
         "resultados": resultados,
         "excepciones": excepciones,
         "novedades": novedades,
         "resumen": conteo,
+        "match": n_match,
+        "sin_match": conteo["sin_match"],
+        "duplicados": n_duplicados,
+        "cobertura": cobertura,
         "ok": conteo["ok"],
         "excedente": conteo["excedente"],
         "faltante": conteo["faltante"],
         "error": conteo["error"],
+        "periodo": periodo_label,
     }
 
     return _respuesta(estado, mensajes, datos)
 
 
 # ============================================
-# ETAPA 5 — REPORTES
+# ETAPA 4 — REPORTES
 # ============================================
 
 def generar_reportes(conciliacion_resultado, audit_trail=None):
