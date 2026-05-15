@@ -391,8 +391,7 @@ const PyBridge = (() => {
     pyCode += '  "' + escapePyString(config.cc.name) + '": {"df": _vc_cc, "llave": "' + escapePyString(config.cc.llave) + '"},\n';
     pyCode += '  "' + escapePyString(config.desc.name) + '": {"df": _vc_desc, "llave": "' + escapePyString(config.desc.llave) + '"},\n';
     pyCode += '}\n';
-    pyCode += '_vc_conceptos = ' + JSON.stringify(config.conceptos || []) + '\n';
-    pyCode += 'resultado_a_json(validar_cruzado(_vc_fuentes, conceptos=_vc_conceptos, decimal_sep="' + escapePyString(config.decimalSep || ',') + '"))';
+    pyCode += 'resultado_a_json(validar_cruzado(_vc_fuentes, decimal_sep="' + escapePyString(config.decimalSep || ',') + '"))';
 
     var resultJson = await callPythonSimple(pyCode);
     return JSON.parse(resultJson);

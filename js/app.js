@@ -985,25 +985,19 @@ const App = (() => {
     var sm = $('#metrica-sin-match');
     var d = $('#metrica-duplicados');
     var c = $('#metrica-cobertura');
-    var inv = $('#metrica-invalidos');
 
     if (m) m.textContent = results.match != null ? results.match : 0;
     if (sm) sm.textContent = results.sinMatch != null ? results.sinMatch : 0;
     if (d) d.textContent = results.duplicados != null ? results.duplicados : 0;
     if (c) c.textContent = (results.cobertura != null ? results.cobertura : 0) + '%';
-    if (inv) inv.textContent = results.invalidos != null ? results.invalidos : 0;
 
-    // Tabla: sin match + invalidos
     var tbody = $('#sin-match-body');
     if (tbody) {
       tbody.innerHTML = '';
-      var allItems = (results.detalles || []).concat(results.invalidosDetalle || []);
-      for (var i = 0; i < allItems.length; i++) {
-        var item = allItems[i];
+      var items = results.detalles || [];
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
         var tr = document.createElement('tr');
-        if (item.tipo === 'dato_invalido') {
-          tr.className = 'fila-invalido';
-        }
 
         var tdLlave = document.createElement('td');
         tdLlave.textContent = item.llave;
@@ -1016,7 +1010,7 @@ const App = (() => {
 
         var tdAccion = document.createElement('td');
         tdAccion.className = 'excepcion-acciones';
-        renderActionButtons(tdAccion, item.llave + (item.tipo === 'dato_invalido' ? ':inv' : ''), 'cruce');
+        renderActionButtons(tdAccion, item.llave, 'cruce');
 
         tr.appendChild(tdLlave);
         tr.appendChild(tdPresente);
@@ -1033,8 +1027,7 @@ const App = (() => {
     }
 
     addLog('info', 'Cruce: ' + (results.match || 0) + ' coincidencias, ' +
-      (results.sinMatch || 0) + ' sin match, ' +
-      (results.invalidos || 0) + ' invalido(s)');
+      (results.sinMatch || 0) + ' sin match');
   }
 
   /* ============================================
@@ -1587,21 +1580,12 @@ const App = (() => {
         sinMatch: datos.sin_match || 0,
         duplicados: datos.duplicados || 0,
         cobertura: datos.cobertura || 0,
-        invalidos: (datos.invalidos || []).length,
         detalles: (datos.detalles || []).map(function (d) {
           return {
             llave: d.llave,
             presenteEn: d.presente_en,
             monto: d.monto || '',
             tipo: 'sin_match'
-          };
-        }),
-        invalidosDetalle: (datos.invalidos || []).map(function (d) {
-          return {
-            llave: d.llave,
-            presenteEn: d.presente_en,
-            monto: d.ausente_en || '',
-            tipo: 'dato_invalido'
           };
         })
       };
