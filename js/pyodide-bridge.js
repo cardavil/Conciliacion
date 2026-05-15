@@ -467,6 +467,12 @@ const PyBridge = (() => {
 
     if (config.maestro) {
       pyCode += '_con_maestro = leer_archivo("/uploads/' + escapePyString(config.maestro.name) + '")\n';
+      if (config.maestro.mapping) {
+        var maestroRename = buildRenameDict(config.maestro.mapping);
+        if (Object.keys(maestroRename).length > 0) {
+          pyCode += '_con_maestro = _con_maestro.rename(columns=' + JSON.stringify(maestroRename) + ')\n';
+        }
+      }
       pyCode += '_con_maestro_cfg = {"llave": "' + escapePyString(config.maestro.llave) + '"';
       pyCode += ', "col_fecha_retiro": "' + escapePyString(config.maestro.colFechaRetiro) + '"';
       if (config.maestro.colFechaIngreso) {

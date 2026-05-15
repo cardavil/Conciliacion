@@ -1175,52 +1175,44 @@ body {
 }
 
 .config-cruce__conceptos-lista {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
   margin-top: var(--space-xs);
 }
 
-.config-mapeo__grupo {
-  background: var(--surface-page);
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-md);
+.config-mapeo__wrapper {
+  overflow-x: auto;
 }
 
-.config-mapeo__grupo-header {
-  font-size: 0.8125rem;
+.config-mapeo__tabla {
+  width: 100%;
+  table-layout: auto;
+}
+
+.config-mapeo__tabla thead th {
+  font-size: 0.625rem;
+  white-space: nowrap;
+}
+
+.config-mapeo__tabla td {
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.config-mapeo__archivo {
   font-weight: 700;
+  white-space: nowrap;
+  font-size: 0.75rem;
   color: var(--text-primary);
-  margin-bottom: var(--space-sm);
 }
 
-.config-mapeo__row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: 4px;
-}
-
-.config-mapeo__label {
-  min-width: 140px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.config-mapeo__sep-opc {
+.config-mapeo__select {
+  width: 100%;
+  min-width: 90px;
+  padding: 3px 4px;
   font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-top: var(--space-sm);
-  margin-bottom: 4px;
-  padding-top: var(--space-xs);
-  border-top: 1px solid var(--surface-border);
+  font-family: var(--font-mono);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--surface-card);
+  color: var(--text-primary);
 }
 
 .config-cruce__validacion {

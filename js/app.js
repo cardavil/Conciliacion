@@ -881,42 +881,9 @@ const App = (() => {
     return first.datos.nombres_columnas || [];
   }
 
-  function buildMappingGroup(label, fileNames, columns, groupKey) {
-    var group = document.createElement('div');
-    group.className = 'config-mapeo__grupo';
-
-    var header = document.createElement('div');
-    header.className = 'config-mapeo__grupo-header';
-    header.textContent = label + ' (' + fileNames.join(', ') + ')';
-    group.appendChild(header);
-
-    for (var c = 0; c < CONCEPTOS_FIJOS.length; c++) {
-      group.appendChild(buildMappingRow(CONCEPTOS_FIJOS[c], columns, groupKey, false));
-    }
-
-    var sepOpc = document.createElement('div');
-    sepOpc.className = 'config-mapeo__sep-opc';
-    sepOpc.textContent = 'Opcionales';
-    group.appendChild(sepOpc);
-
-    for (var o = 0; o < CAMPOS_OPCIONALES.length; o++) {
-      group.appendChild(buildMappingRow(CAMPOS_OPCIONALES[o].key, columns, groupKey, true, CAMPOS_OPCIONALES[o].label));
-    }
-
-    return group;
-  }
-
-  function buildMappingRow(concepto, columns, groupKey, optional, displayLabel) {
-    var row = document.createElement('div');
-    row.className = 'config-mapeo__row';
-
-    var lbl = document.createElement('span');
-    lbl.className = 'config-mapeo__label';
-    lbl.textContent = displayLabel || concepto;
-    row.appendChild(lbl);
-
+  function buildMappingSelect(columns, groupKey, concepto, optional) {
     var sel = document.createElement('select');
-    sel.className = 'config-cruce__select';
+    sel.className = 'config-mapeo__select';
     sel.dataset.mapeoGroup = groupKey;
     sel.dataset.mapeoConcepto = concepto;
 
@@ -935,9 +902,64 @@ const App = (() => {
     }
 
     sel.addEventListener('change', function () { validateCrossConfig(); });
-    row.appendChild(sel);
+    return sel;
+  }
 
-    return row;
+  function buildMappingTable(roles) {
+    var allFields = [];
+    for (var o = 0; o < CAMPOS_OPCIONALES.length; o++) {
+      allFields.push({ key: CAMPOS_OPCIONALES[o].key, label: CAMPOS_OPCIONALES[o].label, optional: true });
+    }
+    for (var c = 0; c < CONCEPTOS_FIJOS.length; c++) {
+      allFields.push({ key: CONCEPTOS_FIJOS[c], label: CONCEPTOS_FIJOS[c], optional: false });
+    }
+
+    var wrapper = document.createElement('div');
+    wrapper.className = 'config-mapeo__wrapper';
+
+    var table = document.createElement('table');
+    table.className = 'tabla config-mapeo__tabla';
+
+    var thead = document.createElement('thead');
+    var trHead = document.createElement('tr');
+    var thArchivo = document.createElement('th');
+    thArchivo.scope = 'col';
+    thArchivo.textContent = 'Archivo';
+    trHead.appendChild(thArchivo);
+
+    for (var h = 0; h < allFields.length; h++) {
+      var th = document.createElement('th');
+      th.scope = 'col';
+      th.textContent = allFields[h].label;
+      trHead.appendChild(th);
+    }
+    thead.appendChild(trHead);
+    table.appendChild(thead);
+
+    var tbody = document.createElement('tbody');
+    for (var r = 0; r < roles.length; r++) {
+      var role = roles[r];
+      var tr = document.createElement('tr');
+
+      var tdName = document.createElement('td');
+      tdName.className = 'config-mapeo__archivo';
+      tdName.textContent = role.label;
+      tr.appendChild(tdName);
+
+      var isMaestro = role.key === 'maestro';
+      for (var f = 0; f < allFields.length; f++) {
+        var td = document.createElement('td');
+        var isOptional = allFields[f].optional || isMaestro;
+        td.appendChild(buildMappingSelect(role.columns, role.key, allFields[f].key, isOptional));
+        tr.appendChild(td);
+      }
+
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    wrapper.appendChild(table);
+
+    return wrapper;
   }
 
   function updateConceptColumns() {
@@ -961,9 +983,17 @@ const App = (() => {
       return;
     }
 
+    var roles = [];
+    var maestroNames = getFilesForRole('maestro');
+    if (maestroNames.length > 0) {
+      var maestroColumns = getColumnsForFiles(maestroNames);
+      roles.push({ key: 'maestro', label: 'Maestro: ' + maestroNames[0], columns: maestroColumns });
+    }
+    roles.push({ key: 'cc', label: 'CC: ' + ccNames.join(', '), columns: ccColumns });
+    roles.push({ key: 'desc', label: 'Desc: ' + descNames[0], columns: descColumns });
+
     listaEl.innerHTML = '';
-    listaEl.appendChild(buildMappingGroup('Cuenta de Cobro', ccNames, ccColumns, 'cc'));
-    listaEl.appendChild(buildMappingGroup('Descuentos', descNames, descColumns, 'desc'));
+    listaEl.appendChild(buildMappingTable(roles));
 
     conceptosSection.removeAttribute('hidden');
   }
@@ -1043,6 +1073,7 @@ const App = (() => {
 
     var ccMapping = collectMapping('cc');
     var descMapping = collectMapping('desc');
+    var maestroMapping = maestroName ? collectMapping('maestro') : {};
 
     var conceptos = [];
     for (var c = 0; c < CONCEPTOS_FIJOS.length; c++) {
@@ -1072,7 +1103,8 @@ const App = (() => {
           name: maestroName,
           llave: maestroLlave,
           colFechaIngreso: fechaIngreso || null,
-          colFechaRetiro: fechaRetiro
+          colFechaRetiro: fechaRetiro,
+          mapping: maestroMapping
         } : null,
         conceptos: conceptos
       };
