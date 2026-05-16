@@ -1244,8 +1244,7 @@ body {
 }
 
 .config-mapeo__select {
-  min-width: 10rem;
-  max-width: 14rem;
+  width: 12rem;
   padding: 0.25rem 0.5rem;
   font-size: 0.8125rem;
   font-family: var(--font-mono);
