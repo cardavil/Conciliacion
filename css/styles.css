@@ -910,25 +910,39 @@ body {
 
 .excepciones-masiva {
   display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  margin-top: var(--space-md);
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
   padding: var(--space-sm) var(--space-md);
   background: var(--surface-page);
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-sm);
 }
 
-.excepciones-masiva__select {
-  width: 12rem;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.8125rem;
-  font-family: var(--font-mono);
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-card);
-  color: var(--text);
+.excepciones-masiva__actions {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.excepciones-masiva__action {
   cursor: pointer;
+}
+
+.excepciones-masiva__action--active {
+  background: var(--accent, #2563eb);
+  color: #fff;
+  border-color: var(--accent, #2563eb);
+}
+
+.excepciones-masiva__action--hint {
+  border-color: var(--error, #dc2626);
+}
+
+.excepciones-masiva__confirm {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
 }
 
 .excepciones-masiva__comment {

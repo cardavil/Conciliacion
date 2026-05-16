@@ -1333,7 +1333,6 @@ const App = (() => {
 
   function renderBulkAction(containerEl, excs) {
     containerEl.innerHTML = '';
-    if (excs.length === 0) return;
 
     var ACTIONS = [
       { label: 'CxC Anterior', value: 'cxc_anterior' },
@@ -1342,49 +1341,77 @@ const App = (() => {
       { label: 'Valor menor', value: 'valor_menor' }
     ];
 
-    var sel = document.createElement('select');
-    sel.className = 'excepciones-masiva__select';
+    var isEmpty = excs.length === 0;
+    var selectedAction = null;
+
+    var actionsRow = document.createElement('div');
+    actionsRow.className = 'excepciones-masiva__actions';
+
+    var actionBtns = [];
     for (var i = 0; i < ACTIONS.length; i++) {
-      var opt = document.createElement('option');
-      opt.value = ACTIONS[i].value;
-      opt.textContent = ACTIONS[i].label;
-      sel.appendChild(opt);
+      (function (act) {
+        var btn = document.createElement('button');
+        btn.className = 'boton boton--accion excepciones-masiva__action';
+        btn.textContent = act.label;
+        if (isEmpty) btn.disabled = true;
+        btn.addEventListener('click', function () {
+          for (var k = 0; k < actionBtns.length; k++) {
+            actionBtns[k].classList.remove('excepciones-masiva__action--active');
+          }
+          btn.classList.add('excepciones-masiva__action--active');
+          selectedAction = act.value;
+        });
+        actionBtns.push(btn);
+        actionsRow.appendChild(btn);
+      })(ACTIONS[i]);
     }
+
+    var confirmRow = document.createElement('div');
+    confirmRow.className = 'excepciones-masiva__confirm';
 
     var commentInput = document.createElement('input');
     commentInput.type = 'text';
     commentInput.className = 'excepciones-masiva__comment';
     commentInput.placeholder = 'Comentario obligatorio';
+    if (isEmpty) commentInput.disabled = true;
 
-    var btn = document.createElement('button');
-    btn.className = 'boton boton--primario excepciones-masiva__btn';
-    btn.textContent = 'Aplicar a todas (' + excs.length + ')';
+    var confirmBtn = document.createElement('button');
+    confirmBtn.className = 'boton boton--primario excepciones-masiva__btn';
+    confirmBtn.textContent = 'Aplicar a todas (' + excs.length + ')';
+    if (isEmpty) confirmBtn.disabled = true;
 
-    btn.addEventListener('click', function () {
+    confirmBtn.addEventListener('click', function () {
+      if (!selectedAction) {
+        for (var k = 0; k < actionBtns.length; k++) {
+          actionBtns[k].classList.add('excepciones-masiva__action--hint');
+        }
+        return;
+      }
       var comment = commentInput.value.trim();
       if (!comment) {
         commentInput.classList.add('accion-form__input--error');
         commentInput.focus();
         return;
       }
-      var action = sel.value;
       var ts = new Date().toISOString();
       for (var j = 0; j < excs.length; j++) {
         state.auditTrail.push({
           timestamp: ts,
           key: excs[j].llave,
           concepto: excs[j].concepto || '',
-          action: action,
+          action: selectedAction,
           context: 'conciliacion',
           comment: comment,
           bulk: true,
           newValue: null
         });
       }
+
       containerEl.innerHTML = '';
       var badge = document.createElement('span');
       badge.className = 'badge badge--ok';
-      badge.textContent = ACTIONS.filter(function (a) { return a.value === action; })[0].label + ' — ' + excs.length + ' registros';
+      var label = ACTIONS.filter(function (a) { return a.value === selectedAction; })[0].label;
+      badge.textContent = label + ' — ' + excs.length + ' registros';
       containerEl.appendChild(badge);
 
       var insideBody = $('#exc-inside-body');
@@ -1395,26 +1422,20 @@ const App = (() => {
         }
       }
 
-      addLog('ok', 'Accion masiva: ' + action + ' — ' + excs.length + ' excepciones — ' + comment);
+      addLog('ok', 'Accion masiva: ' + selectedAction + ' — ' + excs.length + ' excepciones — ' + comment);
       checkAllExceptionsResolved('conciliacion');
     });
 
-    containerEl.appendChild(sel);
-    containerEl.appendChild(commentInput);
-    containerEl.appendChild(btn);
+    confirmRow.appendChild(commentInput);
+    confirmRow.appendChild(confirmBtn);
+    containerEl.appendChild(actionsRow);
+    containerEl.appendChild(confirmRow);
   }
 
   function renderAllExcQueues() {
-    var outsideSec = $('#exc-outside-section');
-    var insideSec = $('#exc-inside-section');
-    var otherSec = $('#exc-other-section');
-
     renderExcRows(state.excOutside, 'exc-outside-body', true);
     renderExcRows(state.excInside, 'exc-inside-body', false);
     renderExcRows(state.excOther, 'exc-other-body', true);
-
-    if (insideSec) insideSec.hidden = state.excInside.length === 0;
-    if (otherSec) otherSec.hidden = state.excOther.length === 0;
 
     var bulkEl = $('#exc-inside-bulk');
     if (bulkEl) renderBulkAction(bulkEl, state.excInside);
