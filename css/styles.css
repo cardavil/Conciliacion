@@ -1190,6 +1190,7 @@ body {
 }
 
 .config-cruce__select {
+  min-width: 10rem;
   padding: 0.25rem 0.5rem;
   font-size: 0.8125rem;
   font-family: var(--font-mono);
