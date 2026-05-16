@@ -465,6 +465,8 @@ const PyBridge = (() => {
     pyCode += '_con_cc_inv = ' + JSON.stringify(ccInv) + '\n';
     pyCode += '_con_desc_inv = ' + JSON.stringify(descInv) + '\n';
 
+    var extraArgs = '';
+
     if (config.maestro) {
       pyCode += '_con_maestro = leer_archivo("/uploads/' + escapePyString(config.maestro.name) + '")\n';
       if (config.maestro.mapping) {
@@ -474,17 +476,24 @@ const PyBridge = (() => {
         }
       }
       pyCode += '_con_maestro_cfg = {"llave": "' + escapePyString(config.maestro.llave) + '"';
-      pyCode += ', "col_fecha_retiro": "' + escapePyString(config.maestro.colFechaRetiro) + '"';
       if (config.maestro.colFechaIngreso) {
         pyCode += ', "col_fecha_ingreso": "' + escapePyString(config.maestro.colFechaIngreso) + '"';
       } else {
         pyCode += ', "col_fecha_ingreso": None';
       }
       pyCode += '}\n';
-      pyCode += 'resultado_a_json(conciliar(_con_cc, _con_desc, _con_llave, _con_conceptos, maestro=_con_maestro, maestro_cfg=_con_maestro_cfg, decimal_sep=_con_decimal_sep, cc_invalidos_eda=_con_cc_inv, desc_invalidos_eda=_con_desc_inv))';
-    } else {
-      pyCode += 'resultado_a_json(conciliar(_con_cc, _con_desc, _con_llave, _con_conceptos, decimal_sep=_con_decimal_sep, cc_invalidos_eda=_con_cc_inv, desc_invalidos_eda=_con_desc_inv))';
+      extraArgs += ', maestro=_con_maestro, maestro_cfg=_con_maestro_cfg';
     }
+
+    if (config.retiros) {
+      pyCode += '_con_retiros = leer_archivo("/uploads/' + escapePyString(config.retiros.name) + '")\n';
+      pyCode += '_con_retiros_cfg = {"llave": "' + escapePyString(config.retiros.llave) + '"';
+      pyCode += ', "col_fecha_retiro": "' + escapePyString(config.retiros.colFechaRetiro) + '"';
+      pyCode += '}\n';
+      extraArgs += ', retiros=_con_retiros, retiros_cfg=_con_retiros_cfg';
+    }
+
+    pyCode += 'resultado_a_json(conciliar(_con_cc, _con_desc, _con_llave, _con_conceptos, decimal_sep=_con_decimal_sep, cc_invalidos_eda=_con_cc_inv, desc_invalidos_eda=_con_desc_inv' + extraArgs + '))';
 
     var resultJson = await callPythonSimple(pyCode);
     return JSON.parse(resultJson);
@@ -494,7 +503,7 @@ const PyBridge = (() => {
      ETAPA 4: REPORTES
      ============================================ */
 
-  async function generateReports(concResult, auditTrail) {
+  async function generateReports(concResult, auditTrail, reportCfg) {
     var pyCode = '';
     pyCode += 'import json as _json\n';
     pyCode += 'import os as _os\n';
@@ -506,7 +515,13 @@ const PyBridge = (() => {
       pyCode += '_gr_audit = None\n';
     }
 
-    pyCode += '_gr_result = generar_reportes(_gr_conc, audit_trail=_gr_audit)\n';
+    if (reportCfg) {
+      pyCode += '_gr_report_cfg = _json.loads(' + JSON.stringify(JSON.stringify(reportCfg)) + ')\n';
+    } else {
+      pyCode += '_gr_report_cfg = None\n';
+    }
+
+    pyCode += '_gr_result = generar_reportes(_gr_conc, audit_trail=_gr_audit, report_cfg=_gr_report_cfg)\n';
     pyCode += '_os.makedirs("/output", exist_ok=True)\n';
     pyCode += '_gr_paths = []\n';
     pyCode += 'for _fname, _fbytes in _gr_result["datos"]["archivos"].items():\n';

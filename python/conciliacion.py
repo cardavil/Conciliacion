@@ -604,6 +604,7 @@ def validar_fuente(nombre, ruta, perfil=None, decimal_sep=","):
 # ============================================
 
 def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_cfg=None,
+              retiros=None, retiros_cfg=None,
               decimal_sep=",", cc_invalidos_eda=None, desc_invalidos_eda=None):
     """
     Cruza cuenta de cobro vs descuentos por llave y conceptos.
@@ -996,48 +997,20 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
                     "estado": estado_reg,
                 })
 
-    # Novedades desde maestro (fecha_ingreso / fecha_retiro)
+    # Novedades desde maestro (fecha_ingreso)
     if maestro is not None and maestro_cfg is not None:
         m = maestro.copy()
         col_llave_m = maestro_cfg.get("llave", llave)
-        col_retiro = maestro_cfg.get("col_fecha_retiro")
         col_ingreso = maestro_cfg.get("col_fecha_ingreso")
         inicio_q, fin_q = _quincena_actual()
 
         if col_llave_m in m.columns:
             m[col_llave_m] = m[col_llave_m].astype(str).str.strip()
 
-            if col_retiro and col_retiro in m.columns:
-                retiro_mask = m[col_retiro].astype(str).str.strip() != ""
-                for _, fila in m[retiro_mask].iterrows():
-                    lv = str(fila[col_llave_m])
-                    fecha = _parsear_fecha(fila[col_retiro])
-                    msg = "Asociado retirado: {} (retiro: {})".format(
-                        lv, fila[col_retiro])
-                    if fecha is None:
-                        msg += " — fecha no reconocida"
-                        mensajes.append(_msg("warn",
-                            "Retiro {}: fecha no reconocida '{}'".format(
-                                lv, fila[col_retiro])))
-                    elif not (inicio_q <= fecha <= fin_q):
-                        msg += " — fecha fuera del periodo actual ({} a {})".format(
-                            inicio_q, fin_q)
-                        mensajes.append(_msg("warn",
-                            "Retiro {}: fecha {} fuera del periodo {}/{}".format(
-                                lv, fecha, inicio_q, fin_q)))
-                    novedades.append({
-                        "llave": lv,
-                        "tipo": "RETIRO",
-                        "mensaje": msg,
-                    })
-
             if col_ingreso and col_ingreso in m.columns:
                 for _, fila in m.iterrows():
                     raw_ingreso = str(fila[col_ingreso]).strip()
                     if not raw_ingreso:
-                        continue
-                    raw_retiro = str(fila.get(col_retiro, "")).strip() if col_retiro and col_retiro in m.columns else ""
-                    if raw_retiro:
                         continue
                     lv = str(fila[col_llave_m])
                     fecha = _parsear_fecha(raw_ingreso)
@@ -1054,6 +1027,38 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
                         "mensaje": "Asociado nuevo: {} (ingreso: {})".format(
                             lv, raw_ingreso),
                     })
+
+    # Novedades desde archivo de retiros (fecha_retiro)
+    if retiros is not None and retiros_cfg is not None:
+        r = retiros.copy()
+        col_llave_r = retiros_cfg.get("llave", llave)
+        col_retiro = retiros_cfg.get("col_fecha_retiro")
+        inicio_q, fin_q = _quincena_actual()
+
+        if col_llave_r in r.columns and col_retiro and col_retiro in r.columns:
+            r[col_llave_r] = r[col_llave_r].astype(str).str.strip()
+            retiro_mask = r[col_retiro].astype(str).str.strip() != ""
+            for _, fila in r[retiro_mask].iterrows():
+                lv = str(fila[col_llave_r])
+                fecha = _parsear_fecha(fila[col_retiro])
+                msg = "Asociado retirado: {} (retiro: {})".format(
+                    lv, fila[col_retiro])
+                if fecha is None:
+                    msg += " — fecha no reconocida"
+                    mensajes.append(_msg("warn",
+                        "Retiro {}: fecha no reconocida '{}'".format(
+                            lv, fila[col_retiro])))
+                elif not (inicio_q <= fecha <= fin_q):
+                    msg += " — fecha fuera del periodo actual ({} a {})".format(
+                        inicio_q, fin_q)
+                    mensajes.append(_msg("warn",
+                        "Retiro {}: fecha {} fuera del periodo {}/{}".format(
+                            lv, fecha, inicio_q, fin_q)))
+                novedades.append({
+                    "llave": lv,
+                    "tipo": "RETIRO",
+                    "mensaje": msg,
+                })
 
     # Contar excepciones DATA_QUALITY como errores
     n_data_quality = sum(1 for e in excepciones if e.get("tipo") == "DATA_QUALITY")
@@ -1113,7 +1118,7 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
 # ETAPA 4 — REPORTES
 # ============================================
 
-def generar_reportes(conciliacion_resultado, audit_trail=None):
+def generar_reportes(conciliacion_resultado, audit_trail=None, report_cfg=None):
     """
     Genera archivos de reporte como bytes.
     Retorna dict de {nombre_archivo: bytes} para descarga.
@@ -1171,6 +1176,49 @@ def generar_reportes(conciliacion_resultado, audit_trail=None):
 
     except Exception as e:
         mensajes.append(_msg("error", "Error generando conciliacion: {}".format(str(e))))
+
+    try:
+        if report_cfg and resultados:
+            df_res = pd.DataFrame(resultados)
+            mapping = report_cfg.get("mapping", {})
+            files_map = report_cfg.get("files", {})
+            incluir_total = report_cfg.get("incluirTotal", False)
+
+            for source_key, field_map in mapping.items():
+                fname = files_map.get(source_key)
+                if not fname:
+                    continue
+                try:
+                    source_df = leer_archivo("/uploads/" + fname)
+                except Exception:
+                    continue
+                for campo, col_original in field_map.items():
+                    if campo in df_res.columns or col_original not in source_df.columns:
+                        continue
+                    llave_col_src = source_df.columns[0]
+                    source_df[llave_col_src] = source_df[llave_col_src].astype(str).str.strip()
+                    lookup = dict(zip(source_df[llave_col_src], source_df[col_original]))
+                    df_res[campo] = df_res["llave"].astype(str).str.strip().map(
+                        lambda x, lu=lookup: lu.get(x, ""))
+
+            if incluir_total:
+                concepto_cols = [c for c in ["APORTES", "AHORROS", "SEGUROS", "INCENTIVO", "CREDITO"]
+                                if c in set(r.get("concepto", "") for r in resultados)]
+                if concepto_cols:
+                    pivot = df_res.pivot_table(index="llave", columns="concepto",
+                                              values="diferencia", aggfunc="first")
+                    total_series = pivot.reindex(columns=concepto_cols).fillna(0).sum(axis=1)
+                    total_map = total_series.to_dict()
+                    df_res["TOTAL"] = df_res["llave"].map(lambda x, tm=total_map: tm.get(x, 0))
+
+            enr_buf = BytesIO()
+            df_res.to_excel(enr_buf, index=False, engine="openpyxl",
+                            sheet_name="Reporte Enriquecido")
+            archivos["reporte_enriquecido.xlsx"] = enr_buf.getvalue()
+            mensajes.append(_msg("ok", "Reporte enriquecido generado"))
+
+    except Exception as e:
+        mensajes.append(_msg("error", "Error generando reporte enriquecido: {}".format(str(e))))
 
     try:
         # Novedades

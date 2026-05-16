@@ -24,6 +24,7 @@ const App = (() => {
     crossConfig: null,
     conciliationResult: null,
     excData: [],
+    excDataFull: [],
     excSort: { col: null, asc: true }
   };
 
@@ -771,9 +772,10 @@ const App = (() => {
       rolSelect.dataset.configType = 'rol';
       var roles = [
         { value: '', label: 'No usar en cruce' },
-        { value: 'cuenta_cobro', label: 'Cuenta de cobro' },
-        { value: 'descuentos', label: 'Descuentos' },
-        { value: 'maestro', label: 'Maestro' }
+        { value: 'cuenta_cobro', label: 'CxC Anterior' },
+        { value: 'descuentos', label: 'CxC Actual' },
+        { value: 'maestro', label: 'Maestro' },
+        { value: 'retiros', label: 'Retiros' }
       ];
       for (var r = 0; r < roles.length; r++) {
         var opt = document.createElement('option');
@@ -840,12 +842,11 @@ const App = (() => {
       (function (rolSel, fiSel, frSel) {
         rolSel.addEventListener('change', function () {
           var isMaestro = rolSel.value === 'maestro';
+          var isRetiros = rolSel.value === 'retiros';
           fiSel.style.display = isMaestro ? '' : 'none';
-          frSel.style.display = isMaestro ? '' : 'none';
-          if (!isMaestro) {
-            fiSel.value = '';
-            frSel.value = '';
-          }
+          frSel.style.display = isRetiros ? '' : 'none';
+          if (!isMaestro) fiSel.value = '';
+          if (!isRetiros) frSel.value = '';
           updateConceptColumns();
           validateCrossConfig();
         });
@@ -907,9 +908,6 @@ const App = (() => {
 
   function buildMappingTable(roles) {
     var allFields = [];
-    for (var o = 0; o < CAMPOS_OPCIONALES.length; o++) {
-      allFields.push({ key: CAMPOS_OPCIONALES[o].key, label: CAMPOS_OPCIONALES[o].label, optional: true });
-    }
     for (var c = 0; c < CONCEPTOS_FIJOS.length; c++) {
       allFields.push({ key: CONCEPTOS_FIJOS[c], label: CONCEPTOS_FIJOS[c], optional: false });
     }
@@ -947,9 +945,10 @@ const App = (() => {
       tr.appendChild(tdName);
 
       var isMaestro = role.key === 'maestro';
+      var isRetiros = role.key === 'retiros';
       for (var f = 0; f < allFields.length; f++) {
         var td = document.createElement('td');
-        var isOptional = allFields[f].optional || isMaestro;
+        var isOptional = allFields[f].optional || isMaestro || isRetiros;
         td.appendChild(buildMappingSelect(role.columns, role.key, allFields[f].key, isOptional));
         tr.appendChild(td);
       }
@@ -989,8 +988,13 @@ const App = (() => {
       var maestroColumns = getColumnsForFiles(maestroNames);
       roles.push({ key: 'maestro', label: 'Maestro: ' + maestroNames[0], columns: maestroColumns });
     }
-    roles.push({ key: 'cc', label: 'CC: ' + ccNames.join(', '), columns: ccColumns });
-    roles.push({ key: 'desc', label: 'Desc: ' + descNames[0], columns: descColumns });
+    var retirosNames = getFilesForRole('retiros');
+    if (retirosNames.length > 0) {
+      var retirosColumns = getColumnsForFiles(retirosNames);
+      roles.push({ key: 'retiros', label: 'Retiros: ' + retirosNames[0], columns: retirosColumns });
+    }
+    roles.push({ key: 'cc', label: 'CxC Ant: ' + ccNames.join(', '), columns: ccColumns });
+    roles.push({ key: 'desc', label: 'CxC Act: ' + descNames[0], columns: descColumns });
 
     listaEl.innerHTML = '';
     listaEl.appendChild(buildMappingTable(roles));
@@ -1019,30 +1023,35 @@ const App = (() => {
     var descNames = [];
     var maestroCount = 0;
     var maestroName = null;
+    var retirosCount = 0;
+    var retirosName = null;
 
     for (var i = 0; i < rolSelects.length; i++) {
       if (rolSelects[i].value === 'cuenta_cobro') ccNames.push(rolSelects[i].dataset.filename);
       if (rolSelects[i].value === 'descuentos') descNames.push(rolSelects[i].dataset.filename);
       if (rolSelects[i].value === 'maestro') { maestroCount++; maestroName = rolSelects[i].dataset.filename; }
+      if (rolSelects[i].value === 'retiros') { retirosCount++; retirosName = rolSelects[i].dataset.filename; }
     }
 
     var errors = [];
-    if (ccNames.length === 0) errors.push('Asigna un archivo como Cuenta de cobro');
+    if (ccNames.length === 0) errors.push('Asigna un archivo como CxC Anterior');
     if (ccNames.length > 1) {
       var allTxt = true;
       for (var t = 0; t < ccNames.length; t++) {
         var fileInfo = state.files.get(ccNames[t]);
         if (!fileInfo || fileInfo.type !== 'txt') { allTxt = false; break; }
       }
-      if (!allTxt) errors.push('Solo archivos TXT pueden asignarse como multiples Cuentas de cobro');
+      if (!allTxt) errors.push('Solo archivos TXT pueden asignarse como multiples CxC Anterior');
     }
-    if (descNames.length === 0) errors.push('Asigna un archivo como Descuentos');
-    if (descNames.length > 1) errors.push('Solo un archivo puede ser Descuentos');
+    if (descNames.length === 0) errors.push('Asigna un archivo como CxC Actual');
+    if (descNames.length > 1) errors.push('Solo un archivo puede ser CxC Actual');
     if (maestroCount > 1) errors.push('Solo un archivo puede ser Maestro');
+    if (retirosCount > 1) errors.push('Solo un archivo puede ser Retiros');
 
     var ccLlave = '';
     var descLlave = '';
     var maestroLlave = '';
+    var retirosLlave = '';
     var descName = descNames.length > 0 ? descNames[0] : null;
     var ccFirstName = ccNames.length > 0 ? ccNames[0] : null;
 
@@ -1051,29 +1060,35 @@ const App = (() => {
       if (llaveSelects[j].dataset.filename === ccFirstName && !ccLlave) ccLlave = llaveSelects[j].value;
       if (llaveSelects[j].dataset.filename === descName) descLlave = llaveSelects[j].value;
       if (llaveSelects[j].dataset.filename === maestroName) maestroLlave = llaveSelects[j].value;
+      if (llaveSelects[j].dataset.filename === retirosName) retirosLlave = llaveSelects[j].value;
     }
 
-    if (ccNames.length > 0 && !ccLlave) errors.push('Selecciona llave para Cuenta de cobro');
-    if (descName && !descLlave) errors.push('Selecciona llave para Descuentos');
+    if (ccNames.length > 0 && !ccLlave) errors.push('Selecciona llave para CxC Anterior');
+    if (descName && !descLlave) errors.push('Selecciona llave para CxC Actual');
     if (maestroName && !maestroLlave) errors.push('Selecciona llave para Maestro');
+    if (retirosName && !retirosLlave) errors.push('Selecciona llave para Retiros');
 
-    var fechaRetiro = '';
     var fechaIngreso = '';
     if (maestroName) {
-      var frSelects = document.querySelectorAll('[data-config-type="fecha-retiro"]');
-      for (var fr = 0; fr < frSelects.length; fr++) {
-        if (frSelects[fr].dataset.filename === maestroName) fechaRetiro = frSelects[fr].value;
-      }
       var fiSelects = document.querySelectorAll('[data-config-type="fecha-ingreso"]');
       for (var fi = 0; fi < fiSelects.length; fi++) {
         if (fiSelects[fi].dataset.filename === maestroName) fechaIngreso = fiSelects[fi].value;
       }
-      if (!fechaRetiro) errors.push('Selecciona columna de fecha retiro para Maestro');
+    }
+
+    var fechaRetiro = '';
+    if (retirosName) {
+      var frSelects = document.querySelectorAll('[data-config-type="fecha-retiro"]');
+      for (var fr = 0; fr < frSelects.length; fr++) {
+        if (frSelects[fr].dataset.filename === retirosName) fechaRetiro = frSelects[fr].value;
+      }
+      if (!fechaRetiro) errors.push('Selecciona columna de fecha retiro para Retiros');
     }
 
     var ccMapping = collectMapping('cc');
     var descMapping = collectMapping('desc');
     var maestroMapping = maestroName ? collectMapping('maestro') : {};
+    var retirosMapping = retirosName ? collectMapping('retiros') : {};
 
     var conceptos = [];
     for (var c = 0; c < CONCEPTOS_FIJOS.length; c++) {
@@ -1082,7 +1097,7 @@ const App = (() => {
     }
 
     if (ccNames.length > 0 && descName && conceptos.length === 0) {
-      errors.push('Mapea al menos un concepto en ambos archivos (CC y Desc)');
+      errors.push('Mapea al menos un concepto en ambos archivos (CxC Ant y CxC Act)');
     }
 
     if (validacionEl) {
@@ -1103,8 +1118,12 @@ const App = (() => {
           name: maestroName,
           llave: maestroLlave,
           colFechaIngreso: fechaIngreso || null,
-          colFechaRetiro: fechaRetiro,
           mapping: maestroMapping
+        } : null,
+        retiros: retirosName ? {
+          name: retirosName,
+          llave: retirosLlave,
+          colFechaRetiro: fechaRetiro
         } : null,
         conceptos: conceptos
       };
@@ -1165,9 +1184,11 @@ const App = (() => {
     }
 
     // Cola de excepciones
-    state.excData = results.excepciones || [];
+    state.excDataFull = results.excepciones || [];
+    state.excData = state.excDataFull.slice();
     state.excSort = { col: null, asc: true };
     initExcSort();
+    initUmbralFilter();
     renderExcepcionesBody(state.excData);
 
     // Novedades
@@ -1206,11 +1227,49 @@ const App = (() => {
     if (results.noMaestro > 0) logMsg += ', ' + results.noMaestro + ' no maestro';
     if (results.sinActividad > 0) logMsg += ', ' + results.sinActividad + ' sin actividad';
     addLog('info', logMsg);
+
+    renderReportConfig();
   }
 
   /* ============================================
      EXCEPCIONES: RENDER + SORTING
      ============================================ */
+
+  function initUmbralFilter() {
+    var input = document.getElementById('umbral-diferencia');
+    if (!input) return;
+    input.value = '0';
+    if (!input._umbralBound) {
+      input.addEventListener('input', function () {
+        filterExcepciones();
+      });
+      input._umbralBound = true;
+    }
+  }
+
+  function filterExcepciones() {
+    var input = document.getElementById('umbral-diferencia');
+    var umbral = input ? parseFloat(input.value) : 0;
+    if (isNaN(umbral) || umbral <= 0) {
+      state.excData = state.excDataFull.slice();
+    } else {
+      state.excData = [];
+      for (var i = 0; i < state.excDataFull.length; i++) {
+        var exc = state.excDataFull[i];
+        var tipo = exc.tipo || '';
+        if (tipo !== 'EXCEDENTE' && tipo !== 'FALTANTE') {
+          state.excData.push(exc);
+        } else {
+          var diff = parseFloat(exc.diferencia);
+          if (!isNaN(diff) && Math.abs(diff) > umbral) {
+            state.excData.push(exc);
+          }
+        }
+      }
+    }
+    state.excSort = { col: null, asc: true };
+    renderExcepcionesBody(state.excData);
+  }
 
   var TIPO_LABELS = {
     'OK': 'Ok',
@@ -1506,17 +1565,124 @@ const App = (() => {
     var section = $('#etapa-3');
     if (!section) return;
 
-    var cells = section.querySelectorAll('.excepcion-acciones');
-    var allResolved = true;
-    for (var i = 0; i < cells.length; i++) {
-      if (!cells[i].querySelector('.badge')) {
-        allResolved = false;
-        break;
-      }
-    }
+    var totalExc = state.excDataFull.length;
+    var allResolved = totalExc > 0 && state.auditTrail.length >= totalExc;
 
     var btn = section.querySelector('.boton--primario');
     if (btn) btn.disabled = !allResolved;
+  }
+
+  /* ============================================
+     MAPEO PARA REPORTES (Etapa 3)
+     ============================================ */
+
+  function renderReportConfig() {
+    var container = $('#config-reportes');
+    var tablaEl = $('#config-reportes-tabla');
+    if (!container || !tablaEl || !state.crossConfig) return;
+
+    tablaEl.innerHTML = '';
+
+    var roles = [];
+    if (state.crossConfig.maestro) {
+      var maestroCols = getColumnsForFiles([state.crossConfig.maestro.name]);
+      roles.push({ key: 'maestro', label: 'Maestro: ' + state.crossConfig.maestro.name, columns: maestroCols });
+    }
+    if (state.crossConfig.cc) {
+      var ccCols = getColumnsForFiles(state.crossConfig.cc.names);
+      roles.push({ key: 'cc', label: 'CxC Ant: ' + state.crossConfig.cc.names.join(', '), columns: ccCols });
+    }
+    if (state.crossConfig.desc) {
+      var descCols = getColumnsForFiles([state.crossConfig.desc.name]);
+      roles.push({ key: 'desc', label: 'CxC Act: ' + state.crossConfig.desc.name, columns: descCols });
+    }
+    if (state.crossConfig.retiros) {
+      var retCols = getColumnsForFiles([state.crossConfig.retiros.name]);
+      roles.push({ key: 'retiros', label: 'Retiros: ' + state.crossConfig.retiros.name, columns: retCols });
+    }
+
+    if (roles.length === 0) return;
+
+    var fields = [];
+    for (var o = 0; o < CAMPOS_OPCIONALES.length; o++) {
+      fields.push({ key: CAMPOS_OPCIONALES[o].key, label: CAMPOS_OPCIONALES[o].label });
+    }
+
+    var wrapper = document.createElement('div');
+    wrapper.className = 'config-mapeo__wrapper';
+
+    var table = document.createElement('table');
+    table.className = 'tabla config-mapeo__tabla';
+
+    var thead = document.createElement('thead');
+    var trHead = document.createElement('tr');
+    var thArchivo = document.createElement('th');
+    thArchivo.scope = 'col';
+    thArchivo.textContent = 'Archivo';
+    trHead.appendChild(thArchivo);
+    for (var h = 0; h < fields.length; h++) {
+      var th = document.createElement('th');
+      th.scope = 'col';
+      th.textContent = fields[h].label;
+      trHead.appendChild(th);
+    }
+    thead.appendChild(trHead);
+    table.appendChild(thead);
+
+    var tbody = document.createElement('tbody');
+    for (var r = 0; r < roles.length; r++) {
+      var role = roles[r];
+      var tr = document.createElement('tr');
+      var tdName = document.createElement('td');
+      tdName.className = 'config-mapeo__archivo';
+      tdName.textContent = role.label;
+      tr.appendChild(tdName);
+      for (var f = 0; f < fields.length; f++) {
+        var td = document.createElement('td');
+        td.appendChild(buildMappingSelect(role.columns, role.key + '_report', fields[f].key, true));
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    wrapper.appendChild(table);
+
+    var checkDiv = document.createElement('div');
+    checkDiv.className = 'config-mapeo__total-check';
+    var checkLabel = document.createElement('label');
+    var checkInput = document.createElement('input');
+    checkInput.type = 'checkbox';
+    checkInput.id = 'check-incluir-total';
+    checkInput.checked = true;
+    checkLabel.appendChild(checkInput);
+    checkLabel.appendChild(document.createTextNode(' Agregar columna TOTAL (suma de conceptos conciliados)'));
+    checkDiv.appendChild(checkLabel);
+    wrapper.appendChild(checkDiv);
+
+    tablaEl.appendChild(wrapper);
+    container.removeAttribute('hidden');
+  }
+
+  function collectReportMapping() {
+    var mapping = {};
+    var keys = ['maestro', 'cc', 'desc', 'retiros'];
+    for (var k = 0; k < keys.length; k++) {
+      var m = collectMapping(keys[k] + '_report');
+      if (Object.keys(m).length > 0) mapping[keys[k]] = m;
+    }
+    var checkTotal = document.getElementById('check-incluir-total');
+    var files = {};
+    if (state.crossConfig) {
+      if (state.crossConfig.maestro) files.maestro = state.crossConfig.maestro.name;
+      if (state.crossConfig.cc) files.cc = state.crossConfig.cc.names[0];
+      if (state.crossConfig.desc) files.desc = state.crossConfig.desc.name;
+      if (state.crossConfig.retiros) files.retiros = state.crossConfig.retiros.name;
+    }
+    return {
+      mapping: mapping,
+      files: files,
+      incluirTotal: checkTotal ? checkTotal.checked : false
+    };
   }
 
   /* ============================================
@@ -1842,9 +2008,11 @@ const App = (() => {
     addLog('info', 'Generando reportes...');
 
     try {
+      var reportCfg = collectReportMapping();
       var reports = await PyBridge.generateReports(
         state.conciliationResult,
-        state.auditTrail
+        state.auditTrail,
+        reportCfg
       );
       renderReports(reports);
     } catch (err) {
