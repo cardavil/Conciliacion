@@ -1110,6 +1110,8 @@ const App = (() => {
       }
     }
 
+    var umbralDiv = $('#config-cruce-umbral');
+
     if (errors.length === 0) {
       state.crossConfig = {
         cc: { names: ccNames, llave: ccLlave, mapping: ccMapping },
@@ -1128,8 +1130,10 @@ const App = (() => {
         conceptos: conceptos
       };
       if (btnStage2) btnStage2.disabled = false;
+      if (umbralDiv) { umbralDiv.hidden = false; initUmbralFilter(); }
     } else {
       if (btnStage2) btnStage2.disabled = true;
+      if (umbralDiv) umbralDiv.hidden = true;
     }
   }
 
@@ -1188,7 +1192,7 @@ const App = (() => {
     state.excData = state.excDataFull.slice();
     state.excSort = { col: null, asc: true };
     initExcSort();
-    initUmbralFilter();
+    filterExcepciones();
     renderExcepcionesBody(state.excData);
 
     // Novedades
@@ -1316,7 +1320,7 @@ const App = (() => {
 
       var tdAccion = document.createElement('td');
       tdAccion.className = 'excepcion-acciones';
-      renderActionButtons(tdAccion, exc.llave, 'conciliacion');
+      renderActionButtons(tdAccion, exc, 'conciliacion');
       tr.appendChild(tdAccion);
 
       tbody.appendChild(tr);
@@ -1457,7 +1461,7 @@ const App = (() => {
      ACCIONES DE EXCEPCIONES
      ============================================ */
 
-  function renderActionButtons(container, key, context) {
+  function renderActionButtons(container, exc, context) {
     var actions = [
       { label: 'Aprobar', value: 'aprobar' },
       { label: 'Corregir', value: 'corregir' },
@@ -1470,14 +1474,15 @@ const App = (() => {
         btn.className = 'boton boton--accion';
         btn.textContent = act.label;
         btn.addEventListener('click', function () {
-          showActionForm(container, key, act.value, context);
+          showActionForm(container, exc, act.value, context);
         });
         container.appendChild(btn);
       })(actions[i]);
     }
   }
 
-  function showActionForm(container, key, action, context) {
+  function showActionForm(container, exc, action, context) {
+    var key = exc.llave;
     var overlay = document.createElement('div');
     overlay.className = 'accion-overlay';
 
@@ -1488,6 +1493,16 @@ const App = (() => {
     titulo.className = 'accion-panel__titulo';
     titulo.textContent = action.charAt(0).toUpperCase() + action.slice(1) + ' — ' + key;
     panel.appendChild(titulo);
+
+    var detalle = document.createElement('p');
+    detalle.className = 'accion-panel__detalle';
+    var parts = [];
+    if (exc.concepto != null) parts.push('Concepto: ' + exc.concepto);
+    if (exc.esperado != null) parts.push('CxC Anterior: ' + exc.esperado);
+    if (exc.real != null) parts.push('CxC Actual: ' + exc.real);
+    if (exc.diferencia != null) parts.push('Diferencia: ' + exc.diferencia);
+    detalle.textContent = parts.join(' | ');
+    panel.appendChild(detalle);
 
     var valueInput = null;
     if (action === 'corregir') {
@@ -1530,6 +1545,7 @@ const App = (() => {
       state.auditTrail.push({
         timestamp: new Date().toISOString(),
         key: key,
+        concepto: exc.concepto || '',
         action: action,
         context: context,
         comment: comment,

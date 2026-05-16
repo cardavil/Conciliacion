@@ -154,6 +154,12 @@
             <div id="config-conceptos-lista" class="config-cruce__conceptos-lista"></div>
           </div>
           <div id="config-cruce-validacion" class="config-cruce__validacion"></div>
+          <div id="config-cruce-umbral" class="config-cruce__umbral" hidden>
+            <label class="excepciones__filtro-label" for="umbral-diferencia">Umbral de diferencia:</label>
+            <input class="excepciones__filtro-input" type="number" id="umbral-diferencia"
+                   min="0" step="1" value="0" placeholder="0 = mostrar todo">
+            <span class="excepciones__filtro-info">Solo muestra diferencias fuera del rango ±umbral</span>
+          </div>
         </div>
 
         <div class="etapa__acciones">
@@ -225,20 +231,14 @@
                 <th scope="col" data-col="llave">Llave</th>
                 <th scope="col" data-col="tipo">Tipo</th>
                 <th scope="col" data-col="concepto">Concepto</th>
-                <th scope="col" data-col="esperado">Esperado <span class="th-ayuda">?<span class="th-ayuda__pop">Para montos: valor en CxC Anterior</span></span></th>
-                <th scope="col" data-col="real">Real <span class="th-ayuda">?<span class="th-ayuda__pop">Para montos: valor en CxC Actual</span></span></th>
+                <th scope="col" data-col="esperado">CxC Anterior</th>
+                <th scope="col" data-col="real">CxC Actual</th>
                 <th scope="col" data-col="diferencia">Diferencia</th>
                 <th scope="col">Accion</th>
               </tr>
             </thead>
             <tbody id="excepciones-body"></tbody>
           </table>
-          <div class="excepciones__filtro">
-            <label class="excepciones__filtro-label" for="umbral-diferencia">Umbral de diferencia:</label>
-            <input class="excepciones__filtro-input" type="number" id="umbral-diferencia"
-                   min="0" step="1" value="0" placeholder="0 = mostrar todo">
-            <span class="excepciones__filtro-info">Solo muestra diferencias fuera del rango ±umbral</span>
-          </div>
         </div>
 
         <!-- Mapeo para Reportes (visible tras conciliacion) -->
