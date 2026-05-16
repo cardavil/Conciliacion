@@ -1245,15 +1245,18 @@ body {
 }
 
 .config-mapeo__select {
-  width: 100%;
-  min-width: 90px;
-  padding: 3px 4px;
-  font-size: 0.6875rem;
+  min-width: 10rem;
+  max-width: 14rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8125rem;
   font-family: var(--font-mono);
   border: 1px solid var(--surface-border);
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
   background: var(--surface-card);
-  color: var(--text-primary);
+  color: var(--text);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .config-mapeo__total-check {
