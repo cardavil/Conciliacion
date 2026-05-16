@@ -526,6 +526,25 @@ body {
   color: #f57f17;
 }
 
+.badge-novedad {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.badge-novedad--nuevo {
+  background: var(--info-bg);
+  color: var(--info-text, #1e40af);
+}
+
+.badge-novedad--retiro {
+  background: var(--warn-bg);
+  color: var(--warn-text, #856404);
+}
+
 /* ============================================
    ALERTA
    ============================================ */
@@ -929,41 +948,6 @@ body {
   cursor: pointer;
 }
 
-.excepciones-masiva__action--active {
-  background: var(--accent, #2563eb);
-  color: #fff;
-  border-color: var(--accent, #2563eb);
-}
-
-.excepciones-masiva__action--hint {
-  border-color: var(--error, #dc2626);
-}
-
-.excepciones-masiva__confirm {
-  display: flex;
-  gap: var(--space-sm);
-  align-items: center;
-}
-
-.excepciones-masiva__comment {
-  flex: 1;
-  padding: 0.35rem 0.6rem;
-  font-size: 0.875rem;
-  border: 2px solid var(--surface-border);
-  border-radius: var(--radius-sm, 4px);
-  background: var(--surface-card);
-  color: var(--text);
-}
-
-.excepciones-masiva__comment:focus {
-  border-color: var(--accent, #2563eb);
-  outline: none;
-}
-
-.excepciones-masiva__btn {
-  white-space: nowrap;
-}
-
 .exc-row--resolved {
   opacity: 0.5;
 }
@@ -1147,12 +1131,6 @@ body {
 /* ============================================
    NOVEDADES
    ============================================ */
-
-.novedades__lista {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
 
 /* ============================================
    CONFIGURACION DETECTADA

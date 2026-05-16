@@ -489,6 +489,7 @@ const PyBridge = (() => {
       pyCode += '_con_retiros = leer_archivo("/uploads/' + escapePyString(config.retiros.name) + '")\n';
       pyCode += '_con_retiros_cfg = {"llave": "' + escapePyString(config.retiros.llave) + '"';
       pyCode += ', "col_fecha_retiro": "' + escapePyString(config.retiros.colFechaRetiro) + '"';
+      pyCode += ', "col_tipo_retiro": "' + escapePyString(config.retiros.colTipoRetiro || '') + '"';
       pyCode += '}\n';
       extraArgs += ', retiros=_con_retiros, retiros_cfg=_con_retiros_cfg';
     }

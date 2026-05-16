@@ -30,6 +30,33 @@ const App = (() => {
     excSort: { col: null, asc: true }
   };
 
+  var EXC_ACTIONS = [
+    { value: 'cxc_anterior', label: 'CxC Anterior', shortLabel: 'CxC Ant' },
+    { value: 'cxc_actual',   label: 'CxC Actual',   shortLabel: 'CxC Act' },
+    { value: 'valor_mayor',  label: 'Valor mayor',   shortLabel: 'Mayor' },
+    { value: 'valor_menor',  label: 'Valor menor',   shortLabel: 'Menor' }
+  ];
+
+  function calcActionValue(exc, action) {
+    var esp = parseFloat(exc.esperado);
+    var real = parseFloat(exc.real);
+    if (action === 'cxc_anterior') return exc.esperado;
+    if (action === 'cxc_actual') return exc.real;
+    if (action === 'valor_mayor') return (isNaN(esp) || isNaN(real)) ? '' : Math.max(esp, real);
+    if (action === 'valor_menor') return (isNaN(esp) || isNaN(real)) ? '' : Math.min(esp, real);
+    return null;
+  }
+
+  function getActionDescription(action) {
+    var descs = {
+      cxc_anterior: 'Se usara el valor de CxC Anterior',
+      cxc_actual: 'Se usara el valor de CxC Actual',
+      valor_mayor: 'Se usara el valor mayor entre CxC Anterior y CxC Actual',
+      valor_menor: 'Se usara el valor menor entre CxC Anterior y CxC Actual'
+    };
+    return descs[action] || '';
+  }
+
   /* ============================================
      UTILIDADES
      ============================================ */
@@ -834,25 +861,43 @@ const App = (() => {
         fechaRetiroSelect.appendChild(optFr);
       }
 
+      var tipoRetiroSelect = document.createElement('select');
+      tipoRetiroSelect.className = 'config-cruce__select';
+      tipoRetiroSelect.dataset.filename = name;
+      tipoRetiroSelect.dataset.configType = 'tipo-retiro';
+      tipoRetiroSelect.style.display = 'none';
+      var optTrEmpty = document.createElement('option');
+      optTrEmpty.value = '';
+      optTrEmpty.textContent = '— Tipo retiro —';
+      tipoRetiroSelect.appendChild(optTrEmpty);
+      for (var tr = 0; tr < columnas.length; tr++) {
+        var optTr = document.createElement('option');
+        optTr.value = columnas[tr];
+        optTr.textContent = columnas[tr];
+        tipoRetiroSelect.appendChild(optTr);
+      }
+
       row.appendChild(span);
       row.appendChild(rolSelect);
       row.appendChild(llaveSelect);
       row.appendChild(fechaIngresoSelect);
       row.appendChild(fechaRetiroSelect);
+      row.appendChild(tipoRetiroSelect);
       archivosEl.appendChild(row);
 
-      (function (rolSel, fiSel, frSel) {
+      (function (rolSel, fiSel, frSel, trSel) {
         rolSel.addEventListener('change', function () {
           var isMaestro = rolSel.value === 'maestro';
           var isRetiros = rolSel.value === 'retiros';
           fiSel.style.display = isMaestro ? '' : 'none';
           frSel.style.display = isRetiros ? '' : 'none';
+          trSel.style.display = isRetiros ? '' : 'none';
           if (!isMaestro) fiSel.value = '';
-          if (!isRetiros) frSel.value = '';
+          if (!isRetiros) { frSel.value = ''; trSel.value = ''; }
           updateConceptColumns();
           validateCrossConfig();
         });
-      })(rolSelect, fechaIngresoSelect, fechaRetiroSelect);
+      })(rolSelect, fechaIngresoSelect, fechaRetiroSelect, tipoRetiroSelect);
 
       llaveSelect.addEventListener('change', function () {
         validateCrossConfig();
@@ -861,6 +906,9 @@ const App = (() => {
         validateCrossConfig();
       });
       fechaRetiroSelect.addEventListener('change', function () {
+        validateCrossConfig();
+      });
+      tipoRetiroSelect.addEventListener('change', function () {
         validateCrossConfig();
       });
     }
@@ -1079,12 +1127,17 @@ const App = (() => {
     }
 
     var fechaRetiro = '';
+    var tipoRetiro = '';
     if (retirosName) {
       var frSelects = document.querySelectorAll('[data-config-type="fecha-retiro"]');
       for (var fr = 0; fr < frSelects.length; fr++) {
         if (frSelects[fr].dataset.filename === retirosName) fechaRetiro = frSelects[fr].value;
       }
       if (!fechaRetiro) errors.push('Selecciona columna de fecha retiro para Retiros');
+      var trSelects = document.querySelectorAll('[data-config-type="tipo-retiro"]');
+      for (var trs = 0; trs < trSelects.length; trs++) {
+        if (trSelects[trs].dataset.filename === retirosName) tipoRetiro = trSelects[trs].value;
+      }
     }
 
     var ccMapping = collectMapping('cc');
@@ -1125,7 +1178,8 @@ const App = (() => {
         retiros: retirosName ? {
           name: retirosName,
           llave: retirosLlave,
-          colFechaRetiro: fechaRetiro
+          colFechaRetiro: fechaRetiro,
+          colTipoRetiro: tipoRetiro || null
         } : null,
         conceptos: conceptos
       };
@@ -1191,30 +1245,6 @@ const App = (() => {
     initUmbralFilter();
     filterExcepciones();
 
-    // Novedades
-    var novedadesEl = $('#novedades-lista');
-    if (novedadesEl) {
-      novedadesEl.innerHTML = '';
-      var novs = results.novedades || [];
-      if (novs.length === 0) {
-        var p = document.createElement('p');
-        p.style.color = 'var(--text-muted)';
-        p.style.fontSize = '0.875rem';
-        p.textContent = 'Sin novedades detectadas';
-        novedadesEl.appendChild(p);
-      } else {
-        for (var n = 0; n < novs.length; n++) {
-          var item = document.createElement('div');
-          item.className = 'alerta alerta--info';
-          var msg = document.createElement('span');
-          msg.className = 'alerta__mensaje';
-          msg.textContent = typeof novs[n] === 'string' ? novs[n] : novs[n].mensaje;
-          item.appendChild(msg);
-          novedadesEl.appendChild(item);
-        }
-      }
-    }
-
     // Boton de avance
     var btn = $('#etapa-3 .boton--primario');
     if (btn) {
@@ -1277,6 +1307,47 @@ const App = (() => {
     renderAllExcQueues();
   }
 
+  function sortExcArray(arr, col, asc) {
+    arr.sort(function (a, b) {
+      var va = a[col] != null ? a[col] : '';
+      var vb = b[col] != null ? b[col] : '';
+      var na = parseFloat(va);
+      var nb = parseFloat(vb);
+      if (!isNaN(na) && !isNaN(nb)) {
+        return asc ? na - nb : nb - na;
+      }
+      va = String(va).toLowerCase();
+      vb = String(vb).toLowerCase();
+      if (va < vb) return asc ? -1 : 1;
+      if (va > vb) return asc ? 1 : -1;
+      return 0;
+    });
+  }
+
+  function handleExcSort(col) {
+    if (state.excSort.col === col) {
+      state.excSort.asc = !state.excSort.asc;
+    } else {
+      state.excSort.col = col;
+      state.excSort.asc = true;
+    }
+    sortExcArray(state.excOutside, col, state.excSort.asc);
+    sortExcArray(state.excInside, col, state.excSort.asc);
+    sortExcArray(state.excOther, col, state.excSort.asc);
+    renderAllExcQueues();
+    updateSortIndicators();
+  }
+
+  function updateSortIndicators() {
+    var ths = document.querySelectorAll('#etapa-3 th[data-col]');
+    for (var i = 0; i < ths.length; i++) {
+      ths[i].classList.remove('th-sorted-asc', 'th-sorted-desc');
+      if (ths[i].dataset.col === state.excSort.col) {
+        ths[i].classList.add(state.excSort.asc ? 'th-sorted-asc' : 'th-sorted-desc');
+      }
+    }
+  }
+
   var TIPO_LABELS = {
     'OK': 'Ok',
     'EXCEDENTE': 'Excedente',
@@ -1293,6 +1364,16 @@ const App = (() => {
     var cls = (tipo || '').toLowerCase().replace(/ /g, '_');
     span.className = 'badge-tipo badge-tipo--' + cls;
     span.textContent = TIPO_LABELS[tipo] || tipo || '';
+    return span;
+  }
+
+  function renderNovedadBadge(text) {
+    var span = document.createElement('span');
+    var cls = 'badge-novedad';
+    if (text.indexOf('RETIRO') === 0) cls += ' badge-novedad--retiro';
+    else if (text.indexOf('NUEVO') === 0) cls += ' badge-novedad--nuevo';
+    span.className = cls;
+    span.textContent = text;
     return span;
   }
 
@@ -1320,6 +1401,15 @@ const App = (() => {
         tr.appendChild(td);
       }
 
+      var tdNovedad = document.createElement('td');
+      var nov = exc.novedad || '';
+      if (nov) {
+        var novText = nov;
+        if (nov === 'RETIRO' && exc.tipo_retiro) novText += ' (' + exc.tipo_retiro + ')';
+        tdNovedad.appendChild(renderNovedadBadge(novText));
+      }
+      tr.appendChild(tdNovedad);
+
       if (withActions) {
         var tdAccion = document.createElement('td');
         tdAccion.className = 'excepcion-acciones';
@@ -1333,85 +1423,93 @@ const App = (() => {
 
   function renderBulkAction(containerEl, excs) {
     containerEl.innerHTML = '';
-
-    var ACTIONS = [
-      { label: 'CxC Anterior', value: 'cxc_anterior' },
-      { label: 'CxC Actual', value: 'cxc_actual' },
-      { label: 'Valor mayor', value: 'valor_mayor' },
-      { label: 'Valor menor', value: 'valor_menor' }
-    ];
-
     var isEmpty = excs.length === 0;
-    var selectedAction = null;
 
     var actionsRow = document.createElement('div');
     actionsRow.className = 'excepciones-masiva__actions';
 
-    var actionBtns = [];
-    for (var i = 0; i < ACTIONS.length; i++) {
+    for (var i = 0; i < EXC_ACTIONS.length; i++) {
       (function (act) {
         var btn = document.createElement('button');
         btn.className = 'boton boton--accion excepciones-masiva__action';
         btn.textContent = act.label;
         if (isEmpty) btn.disabled = true;
         btn.addEventListener('click', function () {
-          for (var k = 0; k < actionBtns.length; k++) {
-            actionBtns[k].classList.remove('excepciones-masiva__action--active');
-          }
-          btn.classList.add('excepciones-masiva__action--active');
-          selectedAction = act.value;
+          showBulkActionForm(containerEl, excs, act.value);
         });
-        actionBtns.push(btn);
         actionsRow.appendChild(btn);
-      })(ACTIONS[i]);
+      })(EXC_ACTIONS[i]);
     }
 
-    var confirmRow = document.createElement('div');
-    confirmRow.className = 'excepciones-masiva__confirm';
+    containerEl.appendChild(actionsRow);
+  }
+
+  function showBulkActionForm(containerEl, excs, action) {
+    var overlay = document.createElement('div');
+    overlay.className = 'accion-overlay';
+
+    var panel = document.createElement('div');
+    panel.className = 'accion-panel';
+
+    var actInfo = EXC_ACTIONS.filter(function (a) { return a.value === action; })[0];
+
+    var titulo = document.createElement('h4');
+    titulo.className = 'accion-panel__titulo';
+    titulo.textContent = actInfo.label + ' — ' + excs.length + ' excepciones';
+    panel.appendChild(titulo);
+
+    var detalle = document.createElement('p');
+    detalle.className = 'accion-panel__detalle';
+    detalle.textContent = getActionDescription(action);
+    panel.appendChild(detalle);
 
     var commentInput = document.createElement('input');
     commentInput.type = 'text';
-    commentInput.className = 'excepciones-masiva__comment';
+    commentInput.className = 'accion-form__input';
     commentInput.placeholder = 'Comentario obligatorio';
-    if (isEmpty) commentInput.disabled = true;
+    panel.appendChild(commentInput);
 
-    var confirmBtn = document.createElement('button');
-    confirmBtn.className = 'boton boton--primario excepciones-masiva__btn';
-    confirmBtn.textContent = 'Aplicar a todas (' + excs.length + ')';
-    if (isEmpty) confirmBtn.disabled = true;
+    var btnRow = document.createElement('div');
+    btnRow.className = 'accion-form__buttons';
 
-    confirmBtn.addEventListener('click', function () {
-      if (!selectedAction) {
-        for (var k = 0; k < actionBtns.length; k++) {
-          actionBtns[k].classList.add('excepciones-masiva__action--hint');
-        }
-        return;
-      }
+    var btnConfirm = document.createElement('button');
+    btnConfirm.className = 'boton boton--accion accion-form__btn-confirmar';
+    btnConfirm.textContent = 'Confirmar';
+
+    var btnCancel = document.createElement('button');
+    btnCancel.className = 'boton boton--accion accion-form__btn-cancelar';
+    btnCancel.textContent = 'Cancelar';
+
+    function closePanel() {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+
+    btnConfirm.addEventListener('click', function () {
       var comment = commentInput.value.trim();
       if (!comment) {
         commentInput.classList.add('accion-form__input--error');
         commentInput.focus();
         return;
       }
+
       var ts = new Date().toISOString();
       for (var j = 0; j < excs.length; j++) {
         state.auditTrail.push({
           timestamp: ts,
           key: excs[j].llave,
           concepto: excs[j].concepto || '',
-          action: selectedAction,
+          action: action,
           context: 'conciliacion',
           comment: comment,
           bulk: true,
-          newValue: null
+          newValue: calcActionValue(excs[j], action)
         });
       }
 
       containerEl.innerHTML = '';
       var badge = document.createElement('span');
       badge.className = 'badge badge--ok';
-      var label = ACTIONS.filter(function (a) { return a.value === selectedAction; })[0].label;
-      badge.textContent = label + ' — ' + excs.length + ' registros';
+      badge.textContent = actInfo.label + ' — ' + excs.length + ' registros';
       containerEl.appendChild(badge);
 
       var insideBody = $('#exc-inside-body');
@@ -1422,14 +1520,22 @@ const App = (() => {
         }
       }
 
-      addLog('ok', 'Accion masiva: ' + selectedAction + ' — ' + excs.length + ' excepciones — ' + comment);
+      closePanel();
+      addLog('ok', 'Accion masiva: ' + action + ' — ' + excs.length + ' excepciones — ' + comment);
       checkAllExceptionsResolved('conciliacion');
     });
 
-    confirmRow.appendChild(commentInput);
-    confirmRow.appendChild(confirmBtn);
-    containerEl.appendChild(actionsRow);
-    containerEl.appendChild(confirmRow);
+    btnCancel.addEventListener('click', closePanel);
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closePanel();
+    });
+
+    btnRow.appendChild(btnConfirm);
+    btnRow.appendChild(btnCancel);
+    panel.appendChild(btnRow);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+    commentInput.focus();
   }
 
   function renderAllExcQueues() {
@@ -1439,6 +1545,20 @@ const App = (() => {
 
     var bulkEl = $('#exc-inside-bulk');
     if (bulkEl) renderBulkAction(bulkEl, state.excInside);
+
+    var ths = document.querySelectorAll('#etapa-3 th[data-col]');
+    for (var i = 0; i < ths.length; i++) {
+      if (!ths[i]._sortBound) {
+        (function (th) {
+          th.addEventListener('click', function () {
+            handleExcSort(th.dataset.col);
+          });
+          th._sortBound = true;
+        })(ths[i]);
+      }
+    }
+
+    updateSortIndicators();
   }
 
   function initAyudaPopovers() {
@@ -1520,14 +1640,7 @@ const App = (() => {
      ============================================ */
 
   function renderActionButtons(container, exc, context) {
-    var actions = [
-      { label: 'CxC Anterior', value: 'cxc_anterior' },
-      { label: 'CxC Actual', value: 'cxc_actual' },
-      { label: 'Val. mayor', value: 'valor_mayor' },
-      { label: 'Val. menor', value: 'valor_menor' }
-    ];
-
-    for (var i = 0; i < actions.length; i++) {
+    for (var i = 0; i < EXC_ACTIONS.length; i++) {
       (function (act) {
         var btn = document.createElement('button');
         btn.className = 'boton boton--accion';
@@ -1536,7 +1649,7 @@ const App = (() => {
           showActionForm(container, exc, act.value, context);
         });
         container.appendChild(btn);
-      })(actions[i]);
+      })(EXC_ACTIONS[i]);
     }
   }
 
@@ -1548,10 +1661,11 @@ const App = (() => {
     var panel = document.createElement('div');
     panel.className = 'accion-panel';
 
+    var actInfo = EXC_ACTIONS.filter(function (a) { return a.value === action; })[0];
+
     var titulo = document.createElement('h4');
     titulo.className = 'accion-panel__titulo';
-    var actionTitles = { cxc_anterior: 'CxC Anterior', cxc_actual: 'CxC Actual', valor_mayor: 'Valor mayor', valor_menor: 'Valor menor' };
-    titulo.textContent = (actionTitles[action] || action) + ' — ' + key;
+    titulo.textContent = (actInfo ? actInfo.label : action) + ' — ' + key;
     panel.appendChild(titulo);
 
     var detalle = document.createElement('p');
@@ -1561,6 +1675,9 @@ const App = (() => {
     if (exc.esperado != null) parts.push('CxC Anterior: ' + exc.esperado);
     if (exc.real != null) parts.push('CxC Actual: ' + exc.real);
     if (exc.diferencia != null) parts.push('Diferencia: ' + exc.diferencia);
+    if (exc.novedad) parts.push('Novedad: ' + exc.novedad + (exc.tipo_retiro ? ' (' + exc.tipo_retiro + ')' : ''));
+    var valorAplicar = calcActionValue(exc, action);
+    if (valorAplicar != null) parts.push('Valor a aplicar: ' + valorAplicar);
     detalle.textContent = parts.join(' | ');
     panel.appendChild(detalle);
 
@@ -1601,14 +1718,13 @@ const App = (() => {
         context: context,
         comment: comment,
         bulk: false,
-        newValue: null
+        newValue: calcActionValue(exc, action)
       });
 
       container.innerHTML = '';
       var badge = document.createElement('span');
       badge.className = 'badge badge--ok';
-      var actionLabels = { cxc_anterior: 'CxC Ant', cxc_actual: 'CxC Act', valor_mayor: 'Mayor', valor_menor: 'Menor' };
-      badge.textContent = actionLabels[action] || action;
+      badge.textContent = actInfo ? actInfo.shortLabel : action;
       container.appendChild(badge);
 
       closePanel();

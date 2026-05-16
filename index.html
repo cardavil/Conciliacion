@@ -228,12 +228,13 @@
           <table class="tabla" aria-label="Excepciones fuera del umbral">
             <thead>
               <tr>
-                <th scope="col">Llave</th>
-                <th scope="col">Tipo</th>
-                <th scope="col">Concepto</th>
-                <th scope="col">CxC Anterior</th>
-                <th scope="col">CxC Actual</th>
-                <th scope="col">Diferencia</th>
+                <th scope="col" data-col="llave">Llave</th>
+                <th scope="col" data-col="tipo">Tipo</th>
+                <th scope="col" data-col="concepto">Concepto</th>
+                <th scope="col" data-col="esperado">CxC Anterior</th>
+                <th scope="col" data-col="real">CxC Actual</th>
+                <th scope="col" data-col="diferencia">Diferencia</th>
+                <th scope="col" data-col="novedad">Novedad</th>
                 <th scope="col">Accion</th>
               </tr>
             </thead>
@@ -248,12 +249,13 @@
           <table class="tabla" aria-label="Excepciones dentro del umbral">
             <thead>
               <tr>
-                <th scope="col">Llave</th>
-                <th scope="col">Tipo</th>
-                <th scope="col">Concepto</th>
-                <th scope="col">CxC Anterior</th>
-                <th scope="col">CxC Actual</th>
-                <th scope="col">Diferencia</th>
+                <th scope="col" data-col="llave">Llave</th>
+                <th scope="col" data-col="tipo">Tipo</th>
+                <th scope="col" data-col="concepto">Concepto</th>
+                <th scope="col" data-col="esperado">CxC Anterior</th>
+                <th scope="col" data-col="real">CxC Actual</th>
+                <th scope="col" data-col="diferencia">Diferencia</th>
+                <th scope="col" data-col="novedad">Novedad</th>
               </tr>
             </thead>
             <tbody id="exc-inside-body"></tbody>
@@ -266,12 +268,13 @@
           <table class="tabla" aria-label="Otras excepciones">
             <thead>
               <tr>
-                <th scope="col">Llave</th>
-                <th scope="col">Tipo</th>
-                <th scope="col">Concepto</th>
-                <th scope="col">CxC Anterior</th>
-                <th scope="col">CxC Actual</th>
-                <th scope="col">Diferencia</th>
+                <th scope="col" data-col="llave">Llave</th>
+                <th scope="col" data-col="tipo">Tipo</th>
+                <th scope="col" data-col="concepto">Concepto</th>
+                <th scope="col" data-col="esperado">CxC Anterior</th>
+                <th scope="col" data-col="real">CxC Actual</th>
+                <th scope="col" data-col="diferencia">Diferencia</th>
+                <th scope="col" data-col="novedad">Novedad</th>
                 <th scope="col">Accion</th>
               </tr>
             </thead>
@@ -283,12 +286,6 @@
         <div class="config-reportes" id="config-reportes" hidden>
           <h3 class="config-reportes__titulo">Mapeo para Reportes</h3>
           <div id="config-reportes-tabla"></div>
-        </div>
-
-        <!-- Novedades -->
-        <div class="novedades">
-          <h3 class="novedades__titulo">Novedades</h3>
-          <div id="novedades-lista"></div>
         </div>
 
         <div class="etapa__acciones">

@@ -1033,6 +1033,7 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
         r = retiros.copy()
         col_llave_r = retiros_cfg.get("llave", llave)
         col_retiro = retiros_cfg.get("col_fecha_retiro")
+        col_tipo_retiro = retiros_cfg.get("col_tipo_retiro")
         inicio_q, fin_q = _quincena_actual()
 
         if col_llave_r in r.columns and col_retiro and col_retiro in r.columns:
@@ -1054,11 +1055,31 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
                     mensajes.append(_msg("warn",
                         "Retiro {}: fecha {} fuera del periodo {}/{}".format(
                             lv, fecha, inicio_q, fin_q)))
+                tr = ""
+                if col_tipo_retiro and col_tipo_retiro in r.columns:
+                    tr = str(fila[col_tipo_retiro]).strip()
+                    if tr.lower() == "nan":
+                        tr = ""
                 novedades.append({
                     "llave": lv,
                     "tipo": "RETIRO",
+                    "tipo_retiro": tr,
                     "mensaje": msg,
                 })
+
+    # Cruzar excepciones con novedades
+    nov_lookup = {}
+    for nov in novedades:
+        nov_lookup[str(nov["llave"])] = nov
+    for exc in excepciones:
+        lv = str(exc.get("llave", ""))
+        if lv in nov_lookup:
+            nov = nov_lookup[lv]
+            exc["novedad"] = nov["tipo"]
+            exc["tipo_retiro"] = nov.get("tipo_retiro", "")
+        else:
+            exc["novedad"] = ""
+            exc["tipo_retiro"] = ""
 
     # Contar excepciones DATA_QUALITY como errores
     n_data_quality = sum(1 for e in excepciones if e.get("tipo") == "DATA_QUALITY")
