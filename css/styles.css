@@ -1191,6 +1191,7 @@ body {
 
 .config-cruce__select {
   min-width: 10rem;
+  max-width: 14rem;
   padding: 0.25rem 0.5rem;
   font-size: 0.8125rem;
   font-family: var(--font-mono);
@@ -1199,6 +1200,8 @@ body {
   background: var(--surface-card);
   color: var(--text);
   cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .config-cruce__conceptos {
