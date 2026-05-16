@@ -216,28 +216,66 @@
           <span class="resumen-estados__item" data-tipo="error">Error: <strong id="resumen-error">0</strong></span>
         </div>
 
-        <!-- Cola de excepciones -->
-        <div class="excepciones">
-          <h3 class="excepciones__titulo">Cola de excepciones</h3>
+        <!-- Cola 1: Excepciones fuera del umbral -->
+        <div class="excepciones" id="exc-outside-section">
+          <h3 class="excepciones__titulo">Excepciones fuera del umbral</h3>
           <div class="excepciones__filtro">
             <label class="excepciones__filtro-label" for="umbral-diferencia">Umbral de diferencia:</label>
             <input class="excepciones__filtro-input" type="number" id="umbral-diferencia"
                    min="0" step="1" value="0" placeholder="0 = mostrar todo">
             <span class="excepciones__filtro-info">Solo muestra diferencias fuera del rango ±umbral</span>
           </div>
-          <table class="tabla" aria-label="Excepciones de conciliacion">
+          <table class="tabla" aria-label="Excepciones fuera del umbral">
             <thead>
               <tr>
-                <th scope="col" data-col="llave">Llave</th>
-                <th scope="col" data-col="tipo">Tipo</th>
-                <th scope="col" data-col="concepto">Concepto</th>
-                <th scope="col" data-col="esperado">CxC Anterior</th>
-                <th scope="col" data-col="real">CxC Actual</th>
-                <th scope="col" data-col="diferencia">Diferencia</th>
+                <th scope="col">Llave</th>
+                <th scope="col">Tipo</th>
+                <th scope="col">Concepto</th>
+                <th scope="col">CxC Anterior</th>
+                <th scope="col">CxC Actual</th>
+                <th scope="col">Diferencia</th>
                 <th scope="col">Accion</th>
               </tr>
             </thead>
-            <tbody id="excepciones-body"></tbody>
+            <tbody id="exc-outside-body"></tbody>
+          </table>
+        </div>
+
+        <!-- Cola 2: Excepciones dentro del umbral (accion masiva) -->
+        <div class="excepciones" id="exc-inside-section" hidden>
+          <h3 class="excepciones__titulo">Excepciones dentro del umbral</h3>
+          <table class="tabla" aria-label="Excepciones dentro del umbral">
+            <thead>
+              <tr>
+                <th scope="col">Llave</th>
+                <th scope="col">Tipo</th>
+                <th scope="col">Concepto</th>
+                <th scope="col">CxC Anterior</th>
+                <th scope="col">CxC Actual</th>
+                <th scope="col">Diferencia</th>
+              </tr>
+            </thead>
+            <tbody id="exc-inside-body"></tbody>
+          </table>
+          <div class="excepciones-masiva" id="exc-inside-bulk"></div>
+        </div>
+
+        <!-- Cola 3: Otras excepciones -->
+        <div class="excepciones" id="exc-other-section" hidden>
+          <h3 class="excepciones__titulo">Otras excepciones</h3>
+          <table class="tabla" aria-label="Otras excepciones">
+            <thead>
+              <tr>
+                <th scope="col">Llave</th>
+                <th scope="col">Tipo</th>
+                <th scope="col">Concepto</th>
+                <th scope="col">CxC Anterior</th>
+                <th scope="col">CxC Actual</th>
+                <th scope="col">Diferencia</th>
+                <th scope="col">Accion</th>
+              </tr>
+            </thead>
+            <tbody id="exc-other-body"></tbody>
           </table>
         </div>
 

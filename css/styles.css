@@ -908,6 +908,52 @@ body {
   font-style: italic;
 }
 
+.excepciones-masiva {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--surface-page);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+}
+
+.excepciones-masiva__select {
+  width: 12rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8125rem;
+  font-family: var(--font-mono);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.excepciones-masiva__comment {
+  flex: 1;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.875rem;
+  border: 2px solid var(--surface-border);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--surface-card);
+  color: var(--text);
+}
+
+.excepciones-masiva__comment:focus {
+  border-color: var(--accent, #2563eb);
+  outline: none;
+}
+
+.excepciones-masiva__btn {
+  white-space: nowrap;
+}
+
+.exc-row--resolved {
+  opacity: 0.5;
+}
+
 /* ============================================
    REPORTES
    ============================================ */

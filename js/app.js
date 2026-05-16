@@ -23,8 +23,10 @@ const App = (() => {
     outputDirHandle: null,
     crossConfig: null,
     conciliationResult: null,
-    excData: [],
     excDataFull: [],
+    excOutside: [],
+    excInside: [],
+    excOther: [],
     excSort: { col: null, asc: true }
   };
 
@@ -1185,12 +1187,9 @@ const App = (() => {
 
     // Cola de excepciones
     state.excDataFull = results.excepciones || [];
-    state.excData = state.excDataFull.slice();
     state.excSort = { col: null, asc: true };
-    initExcSort();
     initUmbralFilter();
     filterExcepciones();
-    renderExcepcionesBody(state.excData);
 
     // Novedades
     var novedadesEl = $('#novedades-lista');
@@ -1251,25 +1250,31 @@ const App = (() => {
   function filterExcepciones() {
     var input = document.getElementById('umbral-diferencia');
     var umbral = input ? parseFloat(input.value) : 0;
-    if (isNaN(umbral) || umbral <= 0) {
-      state.excData = state.excDataFull.slice();
-    } else {
-      state.excData = [];
-      for (var i = 0; i < state.excDataFull.length; i++) {
-        var exc = state.excDataFull[i];
-        var tipo = exc.tipo || '';
-        if (tipo !== 'EXCEDENTE' && tipo !== 'FALTANTE') {
-          state.excData.push(exc);
+    if (isNaN(umbral)) umbral = 0;
+
+    state.excOutside = [];
+    state.excInside = [];
+    state.excOther = [];
+
+    for (var i = 0; i < state.excDataFull.length; i++) {
+      var exc = state.excDataFull[i];
+      var tipo = exc.tipo || '';
+      if (tipo !== 'EXCEDENTE' && tipo !== 'FALTANTE') {
+        state.excOther.push(exc);
+      } else if (umbral > 0) {
+        var diff = parseFloat(exc.diferencia);
+        if (!isNaN(diff) && Math.abs(diff) <= umbral) {
+          state.excInside.push(exc);
         } else {
-          var diff = parseFloat(exc.diferencia);
-          if (!isNaN(diff) && Math.abs(diff) > umbral) {
-            state.excData.push(exc);
-          }
+          state.excOutside.push(exc);
         }
+      } else {
+        state.excOutside.push(exc);
       }
     }
+
     state.excSort = { col: null, asc: true };
-    renderExcepcionesBody(state.excData);
+    renderAllExcQueues();
   }
 
   var TIPO_LABELS = {
@@ -1291,8 +1296,8 @@ const App = (() => {
     return span;
   }
 
-  function renderExcepcionesBody(excs) {
-    var tbody = $('#excepciones-body');
+  function renderExcRows(excs, tbodyId, withActions) {
+    var tbody = $('#' + tbodyId);
     if (!tbody) return;
     tbody.innerHTML = '';
 
@@ -1315,69 +1320,104 @@ const App = (() => {
         tr.appendChild(td);
       }
 
-      var tdAccion = document.createElement('td');
-      tdAccion.className = 'excepcion-acciones';
-      renderActionButtons(tdAccion, exc, 'conciliacion');
-      tr.appendChild(tdAccion);
+      if (withActions) {
+        var tdAccion = document.createElement('td');
+        tdAccion.className = 'excepcion-acciones';
+        renderActionButtons(tdAccion, exc, 'conciliacion');
+        tr.appendChild(tdAccion);
+      }
 
       tbody.appendChild(tr);
     }
   }
 
-  function sortExcepciones(col) {
-    if (state.excSort.col === col) {
-      state.excSort.asc = !state.excSort.asc;
-    } else {
-      state.excSort.col = col;
-      state.excSort.asc = true;
+  function renderBulkAction(containerEl, excs) {
+    containerEl.innerHTML = '';
+    if (excs.length === 0) return;
+
+    var ACTIONS = [
+      { label: 'CxC Anterior', value: 'cxc_anterior' },
+      { label: 'CxC Actual', value: 'cxc_actual' },
+      { label: 'Valor mayor', value: 'valor_mayor' },
+      { label: 'Valor menor', value: 'valor_menor' }
+    ];
+
+    var sel = document.createElement('select');
+    sel.className = 'excepciones-masiva__select';
+    for (var i = 0; i < ACTIONS.length; i++) {
+      var opt = document.createElement('option');
+      opt.value = ACTIONS[i].value;
+      opt.textContent = ACTIONS[i].label;
+      sel.appendChild(opt);
     }
 
-    var sorted = state.excData.slice();
-    var asc = state.excSort.asc;
+    var commentInput = document.createElement('input');
+    commentInput.type = 'text';
+    commentInput.className = 'excepciones-masiva__comment';
+    commentInput.placeholder = 'Comentario obligatorio';
 
-    sorted.sort(function (a, b) {
-      var va = a[col] != null ? String(a[col]) : '';
-      var vb = b[col] != null ? String(b[col]) : '';
-      var na = parseFloat(va);
-      var nb = parseFloat(vb);
+    var btn = document.createElement('button');
+    btn.className = 'boton boton--primario excepciones-masiva__btn';
+    btn.textContent = 'Aplicar a todas (' + excs.length + ')';
 
-      var cmp;
-      if (!isNaN(na) && !isNaN(nb)) {
-        cmp = na - nb;
-      } else {
-        cmp = va.localeCompare(vb, 'es');
+    btn.addEventListener('click', function () {
+      var comment = commentInput.value.trim();
+      if (!comment) {
+        commentInput.classList.add('accion-form__input--error');
+        commentInput.focus();
+        return;
       }
-      return asc ? cmp : -cmp;
+      var action = sel.value;
+      var ts = new Date().toISOString();
+      for (var j = 0; j < excs.length; j++) {
+        state.auditTrail.push({
+          timestamp: ts,
+          key: excs[j].llave,
+          concepto: excs[j].concepto || '',
+          action: action,
+          context: 'conciliacion',
+          comment: comment,
+          bulk: true,
+          newValue: null
+        });
+      }
+      containerEl.innerHTML = '';
+      var badge = document.createElement('span');
+      badge.className = 'badge badge--ok';
+      badge.textContent = ACTIONS.filter(function (a) { return a.value === action; })[0].label + ' — ' + excs.length + ' registros';
+      containerEl.appendChild(badge);
+
+      var insideBody = $('#exc-inside-body');
+      if (insideBody) {
+        var rows = insideBody.querySelectorAll('tr');
+        for (var r = 0; r < rows.length; r++) {
+          rows[r].classList.add('exc-row--resolved');
+        }
+      }
+
+      addLog('ok', 'Accion masiva: ' + action + ' — ' + excs.length + ' excepciones — ' + comment);
+      checkAllExceptionsResolved('conciliacion');
     });
 
-    updateSortIndicators(col, asc);
-    renderExcepcionesBody(sorted);
+    containerEl.appendChild(sel);
+    containerEl.appendChild(commentInput);
+    containerEl.appendChild(btn);
   }
 
-  function updateSortIndicators(activeCol, asc) {
-    var ths = document.querySelectorAll('#etapa-3 .tabla thead th[data-col]');
-    for (var i = 0; i < ths.length; i++) {
-      ths[i].classList.remove('th-sorted-asc', 'th-sorted-desc');
-      if (ths[i].getAttribute('data-col') === activeCol) {
-        ths[i].classList.add(asc ? 'th-sorted-asc' : 'th-sorted-desc');
-      }
-    }
-  }
+  function renderAllExcQueues() {
+    var outsideSec = $('#exc-outside-section');
+    var insideSec = $('#exc-inside-section');
+    var otherSec = $('#exc-other-section');
 
-  function initExcSort() {
-    var ths = document.querySelectorAll('#etapa-3 .tabla thead th[data-col]');
-    for (var i = 0; i < ths.length; i++) {
-      ths[i].classList.remove('th-sorted-asc', 'th-sorted-desc');
-      (function (th) {
-        if (!th._excSortBound) {
-          th.addEventListener('click', function () {
-            sortExcepciones(th.getAttribute('data-col'));
-          });
-          th._excSortBound = true;
-        }
-      })(ths[i]);
-    }
-    initAyudaPopovers();
+    renderExcRows(state.excOutside, 'exc-outside-body', true);
+    renderExcRows(state.excInside, 'exc-inside-body', false);
+    renderExcRows(state.excOther, 'exc-other-body', true);
+
+    if (insideSec) insideSec.hidden = state.excInside.length === 0;
+    if (otherSec) otherSec.hidden = state.excOther.length === 0;
+
+    var bulkEl = $('#exc-inside-bulk');
+    if (bulkEl) renderBulkAction(bulkEl, state.excInside);
   }
 
   function initAyudaPopovers() {
@@ -1460,9 +1500,10 @@ const App = (() => {
 
   function renderActionButtons(container, exc, context) {
     var actions = [
-      { label: 'Aprobar', value: 'aprobar' },
-      { label: 'Corregir', value: 'corregir' },
-      { label: 'Excluir', value: 'excluir' }
+      { label: 'CxC Anterior', value: 'cxc_anterior' },
+      { label: 'CxC Actual', value: 'cxc_actual' },
+      { label: 'Val. mayor', value: 'valor_mayor' },
+      { label: 'Val. menor', value: 'valor_menor' }
     ];
 
     for (var i = 0; i < actions.length; i++) {
@@ -1488,7 +1529,8 @@ const App = (() => {
 
     var titulo = document.createElement('h4');
     titulo.className = 'accion-panel__titulo';
-    titulo.textContent = action.charAt(0).toUpperCase() + action.slice(1) + ' — ' + key;
+    var actionTitles = { cxc_anterior: 'CxC Anterior', cxc_actual: 'CxC Actual', valor_mayor: 'Valor mayor', valor_menor: 'Valor menor' };
+    titulo.textContent = (actionTitles[action] || action) + ' — ' + key;
     panel.appendChild(titulo);
 
     var detalle = document.createElement('p');
@@ -1500,15 +1542,6 @@ const App = (() => {
     if (exc.diferencia != null) parts.push('Diferencia: ' + exc.diferencia);
     detalle.textContent = parts.join(' | ');
     panel.appendChild(detalle);
-
-    var valueInput = null;
-    if (action === 'corregir') {
-      valueInput = document.createElement('input');
-      valueInput.type = 'text';
-      valueInput.className = 'accion-form__input';
-      valueInput.placeholder = 'Nuevo valor';
-      panel.appendChild(valueInput);
-    }
 
     var commentInput = document.createElement('input');
     commentInput.type = 'text';
@@ -1546,13 +1579,15 @@ const App = (() => {
         action: action,
         context: context,
         comment: comment,
-        newValue: valueInput ? valueInput.value.trim() : null
+        bulk: false,
+        newValue: null
       });
 
       container.innerHTML = '';
       var badge = document.createElement('span');
-      badge.className = 'badge badge--' + (action === 'excluir' ? 'locked' : 'ok');
-      badge.textContent = action.charAt(0).toUpperCase() + action.slice(1);
+      badge.className = 'badge badge--ok';
+      var actionLabels = { cxc_anterior: 'CxC Ant', cxc_actual: 'CxC Act', valor_mayor: 'Mayor', valor_menor: 'Menor' };
+      badge.textContent = actionLabels[action] || action;
       container.appendChild(badge);
 
       closePanel();
@@ -1571,7 +1606,7 @@ const App = (() => {
     overlay.appendChild(panel);
     document.body.appendChild(overlay);
 
-    (valueInput || commentInput).focus();
+    commentInput.focus();
   }
 
   function checkAllExceptionsResolved(context) {
