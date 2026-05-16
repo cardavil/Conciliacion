@@ -1110,8 +1110,6 @@ const App = (() => {
       }
     }
 
-    var umbralDiv = $('#config-cruce-umbral');
-
     if (errors.length === 0) {
       state.crossConfig = {
         cc: { names: ccNames, llave: ccLlave, mapping: ccMapping },
@@ -1130,10 +1128,8 @@ const App = (() => {
         conceptos: conceptos
       };
       if (btnStage2) btnStage2.disabled = false;
-      if (umbralDiv) { umbralDiv.hidden = false; initUmbralFilter(); }
     } else {
       if (btnStage2) btnStage2.disabled = true;
-      if (umbralDiv) umbralDiv.hidden = true;
     }
   }
 
@@ -1192,6 +1188,7 @@ const App = (() => {
     state.excData = state.excDataFull.slice();
     state.excSort = { col: null, asc: true };
     initExcSort();
+    initUmbralFilter();
     filterExcepciones();
     renderExcepcionesBody(state.excData);
 

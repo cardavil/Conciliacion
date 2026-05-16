@@ -154,12 +154,6 @@
             <div id="config-conceptos-lista" class="config-cruce__conceptos-lista"></div>
           </div>
           <div id="config-cruce-validacion" class="config-cruce__validacion"></div>
-          <div id="config-cruce-umbral" class="config-cruce__umbral" hidden>
-            <label class="excepciones__filtro-label" for="umbral-diferencia">Umbral de diferencia:</label>
-            <input class="excepciones__filtro-input" type="number" id="umbral-diferencia"
-                   min="0" step="1" value="0" placeholder="0 = mostrar todo">
-            <span class="excepciones__filtro-info">Solo muestra diferencias fuera del rango ±umbral</span>
-          </div>
         </div>
 
         <div class="etapa__acciones">
@@ -225,6 +219,12 @@
         <!-- Cola de excepciones -->
         <div class="excepciones">
           <h3 class="excepciones__titulo">Cola de excepciones</h3>
+          <div class="excepciones__filtro">
+            <label class="excepciones__filtro-label" for="umbral-diferencia">Umbral de diferencia:</label>
+            <input class="excepciones__filtro-input" type="number" id="umbral-diferencia"
+                   min="0" step="1" value="0" placeholder="0 = mostrar todo">
+            <span class="excepciones__filtro-info">Solo muestra diferencias fuera del rango ±umbral</span>
+          </div>
           <table class="tabla" aria-label="Excepciones de conciliacion">
             <thead>
               <tr>
