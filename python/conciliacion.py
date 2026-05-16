@@ -1139,134 +1139,144 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
 # ETAPA 4 — REPORTES
 # ============================================
 
+def _enriquecer_df(df, extra_mapping, files_map):
+    for campo, info in extra_mapping.items():
+        fname = info.get("file", "")
+        col_original = info.get("col", "")
+        if not fname or not col_original:
+            continue
+        try:
+            source_df = leer_archivo("/uploads/" + fname)
+        except Exception:
+            continue
+        if col_original not in source_df.columns:
+            continue
+        llave_col_src = source_df.columns[0]
+        source_df[llave_col_src] = source_df[llave_col_src].astype(str).str.strip()
+        lookup = dict(zip(source_df[llave_col_src], source_df[col_original]))
+        df[campo] = df["llave"].astype(str).str.strip().map(
+            lambda x, lu=lookup: lu.get(x, ""))
+
+
 def generar_reportes(conciliacion_resultado, audit_trail=None, report_cfg=None):
-    """
-    Genera archivos de reporte como bytes.
-    Retorna dict de {nombre_archivo: bytes} para descarga.
-    """
     mensajes = []
     archivos = {}
     datos_conc = conciliacion_resultado.get("datos", {})
+    resultados = datos_conc.get("resultados", [])
+    excepciones = datos_conc.get("excepciones", [])
+    novedades = datos_conc.get("novedades", [])
+    report_cfg = report_cfg or {}
+    files_map = report_cfg.get("files", {})
 
+    # --- 1. HOJA DE TRABAJO (workbook con 4 hojas) ---
     try:
-        # Resumen ejecutivo
-        resumen_buf = BytesIO()
-        resumen_data = {
-            "Metrica": ["OK", "Excedente", "Faltante", "Sin Match", "Error"],
-            "Cantidad": [
-                datos_conc.get("ok", 0),
-                datos_conc.get("excedente", 0),
-                datos_conc.get("faltante", 0),
-                datos_conc.get("resumen", {}).get("sin_match", 0),
-                datos_conc.get("error", 0),
-            ]
-        }
-        df_resumen = pd.DataFrame(resumen_data)
-        df_resumen.to_excel(resumen_buf, index=False, engine="openpyxl",
-                            sheet_name="Resumen")
-        archivos["resumen_ejecutivo.xlsx"] = resumen_buf.getvalue()
-        mensajes.append(_msg("ok", "Resumen ejecutivo generado"))
+        ht_buf = BytesIO()
+        with pd.ExcelWriter(ht_buf, engine="openpyxl") as writer:
+
+            # Hoja: Conciliacion (resultados + decisiones + enriquecimiento)
+            if resultados:
+                df_conc = pd.DataFrame(resultados)
+                if audit_trail:
+                    df_at = pd.DataFrame(audit_trail)
+                    df_at["llave"] = df_at["key"].astype(str).str.strip()
+                    df_at = df_at.sort_values("timestamp").drop_duplicates(
+                        subset=["llave", "concepto"], keep="last")
+                    df_merge = df_at[["llave", "concepto", "action", "comment", "newValue"]].copy()
+                    df_merge.columns = ["llave", "concepto", "decision", "comentario", "valor_final"]
+                    df_conc["llave"] = df_conc["llave"].astype(str).str.strip()
+                    df_conc = df_conc.merge(df_merge, on=["llave", "concepto"], how="left")
+                extra_mapping = report_cfg.get("descuentos", {}).get("extraMapping", {})
+                if extra_mapping:
+                    _enriquecer_df(df_conc, extra_mapping, files_map)
+                df_conc.to_excel(writer, index=False, sheet_name="Conciliacion")
+
+            # Hoja: Resumen
+            resumen_data = {
+                "Metrica": ["OK", "Excedente", "Faltante", "Sin Match", "Error"],
+                "Cantidad": [
+                    datos_conc.get("ok", 0),
+                    datos_conc.get("excedente", 0),
+                    datos_conc.get("faltante", 0),
+                    datos_conc.get("resumen", {}).get("sin_match", 0),
+                    datos_conc.get("error", 0),
+                ]
+            }
+            pd.DataFrame(resumen_data).to_excel(writer, index=False, sheet_name="Resumen")
+
+            # Hoja: Novedades
+            if novedades:
+                pd.DataFrame(novedades).to_excel(writer, index=False, sheet_name="Novedades")
+
+            # Hoja: Audit Trail
+            if audit_trail:
+                pd.DataFrame(audit_trail).to_excel(writer, index=False, sheet_name="Audit Trail")
+
+        archivos["hoja_de_trabajo.xlsx"] = ht_buf.getvalue()
+        mensajes.append(_msg("ok", "Hoja de trabajo generada"))
 
     except Exception as e:
-        mensajes.append(_msg("error", "Error generando resumen: {}".format(str(e))))
+        mensajes.append(_msg("error", "Error generando hoja de trabajo: {}".format(str(e))))
 
+    # --- 2. DESCUENTOS QUINCENA (reporte final configurable) ---
     try:
-        # Detalle de excepciones
-        excepciones = datos_conc.get("excepciones", [])
-        if excepciones:
-            exc_buf = BytesIO()
-            df_exc = pd.DataFrame(excepciones)
-            df_exc.to_excel(exc_buf, index=False, engine="openpyxl",
-                            sheet_name="Excepciones")
-            archivos["excepciones_detalle.xlsx"] = exc_buf.getvalue()
-            mensajes.append(_msg("ok", "Detalle de excepciones generado"))
+        desc_cfg = report_cfg.get("descuentos", {})
+        conceptos_incluir = desc_cfg.get("conceptos", [])
+
+        if resultados and conceptos_incluir:
+            df = pd.DataFrame(resultados).copy()
+            df["llave"] = df["llave"].astype(str).str.strip()
+
+            # Aplicar decisiones del audit trail
+            if audit_trail:
+                at_lookup = {}
+                for at in audit_trail:
+                    at_lookup[(str(at.get("key", "")), at.get("concepto", ""))] = at.get("newValue")
+                def _valor_final(row, lu=at_lookup):
+                    key = (str(row["llave"]), row.get("concepto", ""))
+                    nv = lu.get(key)
+                    return nv if nv is not None else row["real"]
+                df["valor_final"] = df.apply(_valor_final, axis=1)
+            else:
+                df["valor_final"] = df["real"]
+
+            # Filtrar solo conceptos seleccionados
+            df = df[df["concepto"].isin(conceptos_incluir)]
+
+            # Filtrar conciliados si no se quieren
+            incluir_conc = desc_cfg.get("incluirConciliados", True)
+            if not incluir_conc:
+                if audit_trail:
+                    at_keys = set()
+                    for at in audit_trail:
+                        at_keys.add((str(at.get("key", "")), at.get("concepto", "")))
+                    mask = df.apply(lambda r: (str(r["llave"]), r.get("concepto", "")) in at_keys, axis=1)
+                    df = df[mask]
+
+            if len(df) > 0:
+                # Pivotar: una fila por llave, columna por concepto
+                pivot = df.pivot_table(index="llave", columns="concepto",
+                                       values="valor_final", aggfunc="first")
+                pivot = pivot.reindex(columns=conceptos_incluir)
+                pivot = pivot.reset_index()
+
+                # Enriquecer con columnas extra
+                extra_mapping = desc_cfg.get("extraMapping", {})
+                if extra_mapping:
+                    _enriquecer_df(pivot, extra_mapping, files_map)
+
+                # TOTAL
+                if desc_cfg.get("incluirTotal", False):
+                    num_cols = [c for c in conceptos_incluir if c in pivot.columns]
+                    pivot["TOTAL"] = pivot[num_cols].apply(pd.to_numeric, errors="coerce").fillna(0).sum(axis=1)
+
+                desc_buf = BytesIO()
+                pivot.to_excel(desc_buf, index=False, engine="openpyxl",
+                               sheet_name="Descuentos")
+                archivos["descuentos_quincena.xlsx"] = desc_buf.getvalue()
+                mensajes.append(_msg("ok", "Reporte de descuentos generado"))
 
     except Exception as e:
-        mensajes.append(_msg("error", "Error generando excepciones: {}".format(str(e))))
-
-    try:
-        # Resultados completos de conciliacion
-        resultados = datos_conc.get("resultados", [])
-        if resultados:
-            res_buf = BytesIO()
-            df_res = pd.DataFrame(resultados)
-            df_res.to_excel(res_buf, index=False, engine="openpyxl",
-                            sheet_name="Conciliacion")
-            archivos["conciliacion_completa.xlsx"] = res_buf.getvalue()
-            mensajes.append(_msg("ok", "Conciliacion completa generada"))
-
-    except Exception as e:
-        mensajes.append(_msg("error", "Error generando conciliacion: {}".format(str(e))))
-
-    try:
-        if report_cfg and resultados:
-            df_res = pd.DataFrame(resultados)
-            mapping = report_cfg.get("mapping", {})
-            files_map = report_cfg.get("files", {})
-            incluir_total = report_cfg.get("incluirTotal", False)
-
-            for source_key, field_map in mapping.items():
-                fname = files_map.get(source_key)
-                if not fname:
-                    continue
-                try:
-                    source_df = leer_archivo("/uploads/" + fname)
-                except Exception:
-                    continue
-                for campo, col_original in field_map.items():
-                    if campo in df_res.columns or col_original not in source_df.columns:
-                        continue
-                    llave_col_src = source_df.columns[0]
-                    source_df[llave_col_src] = source_df[llave_col_src].astype(str).str.strip()
-                    lookup = dict(zip(source_df[llave_col_src], source_df[col_original]))
-                    df_res[campo] = df_res["llave"].astype(str).str.strip().map(
-                        lambda x, lu=lookup: lu.get(x, ""))
-
-            if incluir_total:
-                concepto_cols = [c for c in ["APORTES", "AHORROS", "SEGUROS", "INCENTIVO", "CREDITO"]
-                                if c in set(r.get("concepto", "") for r in resultados)]
-                if concepto_cols:
-                    pivot = df_res.pivot_table(index="llave", columns="concepto",
-                                              values="diferencia", aggfunc="first")
-                    total_series = pivot.reindex(columns=concepto_cols).fillna(0).sum(axis=1)
-                    total_map = total_series.to_dict()
-                    df_res["TOTAL"] = df_res["llave"].map(lambda x, tm=total_map: tm.get(x, 0))
-
-            enr_buf = BytesIO()
-            df_res.to_excel(enr_buf, index=False, engine="openpyxl",
-                            sheet_name="Reporte Enriquecido")
-            archivos["reporte_enriquecido.xlsx"] = enr_buf.getvalue()
-            mensajes.append(_msg("ok", "Reporte enriquecido generado"))
-
-    except Exception as e:
-        mensajes.append(_msg("error", "Error generando reporte enriquecido: {}".format(str(e))))
-
-    try:
-        # Novedades
-        novedades = datos_conc.get("novedades", [])
-        if novedades:
-            nov_buf = BytesIO()
-            df_nov = pd.DataFrame(novedades)
-            df_nov.to_excel(nov_buf, index=False, engine="openpyxl",
-                            sheet_name="Novedades")
-            archivos["novedades.xlsx"] = nov_buf.getvalue()
-            mensajes.append(_msg("ok", "Novedades generadas"))
-
-    except Exception as e:
-        mensajes.append(_msg("error", "Error generando novedades: {}".format(str(e))))
-
-    try:
-        # Audit trail
-        if audit_trail:
-            at_buf = BytesIO()
-            df_at = pd.DataFrame(audit_trail)
-            df_at.to_excel(at_buf, index=False, engine="openpyxl",
-                           sheet_name="Audit Trail")
-            archivos["audit_log.xlsx"] = at_buf.getvalue()
-            mensajes.append(_msg("ok", "Audit trail generado"))
-
-    except Exception as e:
-        mensajes.append(_msg("error", "Error generando audit trail: {}".format(str(e))))
+        mensajes.append(_msg("error", "Error generando reporte de descuentos: {}".format(str(e))))
 
     estado = "ok"
     for m in mensajes:

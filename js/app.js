@@ -1761,6 +1761,78 @@ const App = (() => {
      MAPEO PARA REPORTES (Etapa 3)
      ============================================ */
 
+  function buildReportCheck(id, label, checked) {
+    var div = document.createElement('div');
+    div.className = 'config-reportes__check';
+    var lbl = document.createElement('label');
+    var input = document.createElement('input');
+    input.type = 'checkbox';
+    input.id = 'report-' + id;
+    input.checked = checked;
+    lbl.appendChild(input);
+    lbl.appendChild(document.createTextNode(' ' + label));
+    div.appendChild(lbl);
+    return div;
+  }
+
+  function getAllSourceColumns() {
+    var result = [];
+    var cfg = state.crossConfig;
+    var roles = [
+      { name: cfg.maestro ? cfg.maestro.name : null, label: 'Maestro' },
+      { name: cfg.cc ? cfg.cc.names[0] : null, label: 'CxC Ant' },
+      { name: cfg.desc ? cfg.desc.name : null, label: 'CxC Act' },
+      { name: cfg.retiros ? cfg.retiros.name : null, label: 'Retiros' }
+    ];
+    for (var r = 0; r < roles.length; r++) {
+      if (!roles[r].name) continue;
+      var cols = getColumnsForFiles([roles[r].name]);
+      for (var c = 0; c < cols.length; c++) {
+        result.push({ file: roles[r].name, col: cols[c], role: roles[r].label });
+      }
+    }
+    return result;
+  }
+
+  function buildExtraFieldRow(campo) {
+    var div = document.createElement('div');
+    div.className = 'config-reportes__extra-row';
+
+    var lbl = document.createElement('label');
+    var chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.id = 'report-extra-' + campo.key;
+    chk.checked = false;
+    lbl.appendChild(chk);
+    lbl.appendChild(document.createTextNode(' ' + campo.label + ': '));
+
+    var sel = document.createElement('select');
+    sel.className = 'config-cruce__select';
+    sel.id = 'report-extra-sel-' + campo.key;
+    sel.disabled = true;
+    var optEmpty = document.createElement('option');
+    optEmpty.value = '';
+    optEmpty.textContent = '— Columna —';
+    sel.appendChild(optEmpty);
+
+    var allCols = getAllSourceColumns();
+    for (var c = 0; c < allCols.length; c++) {
+      var opt = document.createElement('option');
+      opt.value = allCols[c].file + '::' + allCols[c].col;
+      opt.textContent = allCols[c].col + ' (' + allCols[c].role + ')';
+      sel.appendChild(opt);
+    }
+
+    chk.addEventListener('change', function () {
+      sel.disabled = !chk.checked;
+      if (!chk.checked) sel.value = '';
+    });
+
+    div.appendChild(lbl);
+    div.appendChild(sel);
+    return div;
+  }
+
   function renderReportConfig() {
     var container = $('#config-reportes');
     var tablaEl = $('#config-reportes-tabla');
@@ -1768,94 +1840,80 @@ const App = (() => {
 
     tablaEl.innerHTML = '';
 
-    var roles = [];
-    if (state.crossConfig.maestro) {
-      var maestroCols = getColumnsForFiles([state.crossConfig.maestro.name]);
-      roles.push({ key: 'maestro', label: 'Maestro: ' + state.crossConfig.maestro.name, columns: maestroCols });
+    // Seccion: Hoja de trabajo (informativa)
+    var htSection = document.createElement('div');
+    htSection.className = 'config-reportes__seccion';
+    var htTitle = document.createElement('h4');
+    htTitle.className = 'config-reportes__subtitulo';
+    htTitle.textContent = 'Hoja de trabajo';
+    var htDesc = document.createElement('p');
+    htDesc.className = 'config-reportes__desc';
+    htDesc.textContent = 'Se genera automaticamente con conciliacion completa, decisiones, novedades y audit trail.';
+    htSection.appendChild(htTitle);
+    htSection.appendChild(htDesc);
+    tablaEl.appendChild(htSection);
+
+    // Seccion: Reporte de descuentos (configurable)
+    var descSection = document.createElement('div');
+    descSection.className = 'config-reportes__seccion';
+    var descTitle = document.createElement('h4');
+    descTitle.className = 'config-reportes__subtitulo';
+    descTitle.textContent = 'Reporte de descuentos';
+
+    // Checkboxes de conceptos
+    var conceptosDiv = document.createElement('div');
+    conceptosDiv.className = 'config-reportes__checks';
+    var conceptos = state.crossConfig.conceptos || [];
+    for (var i = 0; i < conceptos.length; i++) {
+      conceptosDiv.appendChild(buildReportCheck('concepto-' + conceptos[i], conceptos[i], true));
     }
-    if (state.crossConfig.cc) {
-      var ccCols = getColumnsForFiles(state.crossConfig.cc.names);
-      roles.push({ key: 'cc', label: 'CxC Ant: ' + state.crossConfig.cc.names.join(', '), columns: ccCols });
-    }
-    if (state.crossConfig.desc) {
-      var descCols = getColumnsForFiles([state.crossConfig.desc.name]);
-      roles.push({ key: 'desc', label: 'CxC Act: ' + state.crossConfig.desc.name, columns: descCols });
-    }
-    if (state.crossConfig.retiros) {
-      var retCols = getColumnsForFiles([state.crossConfig.retiros.name]);
-      roles.push({ key: 'retiros', label: 'Retiros: ' + state.crossConfig.retiros.name, columns: retCols });
-    }
+    conceptosDiv.appendChild(buildReportCheck('incluir-total', 'TOTAL', true));
 
-    if (roles.length === 0) return;
+    // Checkbox conciliados
+    var opcionesDiv = document.createElement('div');
+    opcionesDiv.className = 'config-reportes__checks';
+    opcionesDiv.appendChild(buildReportCheck('incluir-conciliados', 'Incluir conciliados (OK)', true));
 
-    var fields = [];
-    for (var o = 0; o < CAMPOS_OPCIONALES.length; o++) {
-      fields.push({ key: CAMPOS_OPCIONALES[o].key, label: CAMPOS_OPCIONALES[o].label });
+    // Columnas extra
+    var extrasDiv = document.createElement('div');
+    extrasDiv.className = 'config-reportes__extras';
+    for (var e = 0; e < CAMPOS_OPCIONALES.length; e++) {
+      extrasDiv.appendChild(buildExtraFieldRow(CAMPOS_OPCIONALES[e]));
     }
 
-    var wrapper = document.createElement('div');
-    wrapper.className = 'config-mapeo__wrapper';
+    descSection.appendChild(descTitle);
+    descSection.appendChild(conceptosDiv);
+    descSection.appendChild(opcionesDiv);
+    descSection.appendChild(extrasDiv);
+    tablaEl.appendChild(descSection);
 
-    var table = document.createElement('table');
-    table.className = 'tabla config-mapeo__tabla';
-
-    var thead = document.createElement('thead');
-    var trHead = document.createElement('tr');
-    var thArchivo = document.createElement('th');
-    thArchivo.scope = 'col';
-    thArchivo.textContent = 'Archivo';
-    trHead.appendChild(thArchivo);
-    for (var h = 0; h < fields.length; h++) {
-      var th = document.createElement('th');
-      th.scope = 'col';
-      th.textContent = fields[h].label;
-      trHead.appendChild(th);
-    }
-    thead.appendChild(trHead);
-    table.appendChild(thead);
-
-    var tbody = document.createElement('tbody');
-    for (var r = 0; r < roles.length; r++) {
-      var role = roles[r];
-      var tr = document.createElement('tr');
-      var tdName = document.createElement('td');
-      tdName.className = 'config-mapeo__archivo';
-      tdName.textContent = role.label;
-      tr.appendChild(tdName);
-      for (var f = 0; f < fields.length; f++) {
-        var td = document.createElement('td');
-        td.appendChild(buildMappingSelect(role.columns, role.key + '_report', fields[f].key, true));
-        tr.appendChild(td);
-      }
-      tbody.appendChild(tr);
-    }
-    table.appendChild(tbody);
-    wrapper.appendChild(table);
-
-    var checkDiv = document.createElement('div');
-    checkDiv.className = 'config-mapeo__total-check';
-    var checkLabel = document.createElement('label');
-    var checkInput = document.createElement('input');
-    checkInput.type = 'checkbox';
-    checkInput.id = 'check-incluir-total';
-    checkInput.checked = true;
-    checkLabel.appendChild(checkInput);
-    checkLabel.appendChild(document.createTextNode(' Agregar columna TOTAL (suma de conceptos conciliados)'));
-    checkDiv.appendChild(checkLabel);
-    wrapper.appendChild(checkDiv);
-
-    tablaEl.appendChild(wrapper);
     container.removeAttribute('hidden');
   }
 
   function collectReportMapping() {
-    var mapping = {};
-    var keys = ['maestro', 'cc', 'desc', 'retiros'];
-    for (var k = 0; k < keys.length; k++) {
-      var m = collectMapping(keys[k] + '_report');
-      if (Object.keys(m).length > 0) mapping[keys[k]] = m;
+    var conceptos = state.crossConfig ? (state.crossConfig.conceptos || []) : [];
+    var selectedConceptos = [];
+    for (var i = 0; i < conceptos.length; i++) {
+      var chk = document.getElementById('report-concepto-' + conceptos[i]);
+      if (chk && chk.checked) selectedConceptos.push(conceptos[i]);
     }
-    var checkTotal = document.getElementById('check-incluir-total');
+
+    var chkTotal = document.getElementById('report-incluir-total');
+    var chkConc = document.getElementById('report-incluir-conciliados');
+
+    var extras = [];
+    var extraMapping = {};
+    for (var e = 0; e < CAMPOS_OPCIONALES.length; e++) {
+      var campo = CAMPOS_OPCIONALES[e];
+      var chkExtra = document.getElementById('report-extra-' + campo.key);
+      var selExtra = document.getElementById('report-extra-sel-' + campo.key);
+      if (chkExtra && chkExtra.checked && selExtra && selExtra.value) {
+        var parts = selExtra.value.split('::');
+        extras.push(campo.key);
+        extraMapping[campo.key] = { file: parts[0], col: parts[1] };
+      }
+    }
+
     var files = {};
     if (state.crossConfig) {
       if (state.crossConfig.maestro) files.maestro = state.crossConfig.maestro.name;
@@ -1863,10 +1921,16 @@ const App = (() => {
       if (state.crossConfig.desc) files.desc = state.crossConfig.desc.name;
       if (state.crossConfig.retiros) files.retiros = state.crossConfig.retiros.name;
     }
+
     return {
-      mapping: mapping,
       files: files,
-      incluirTotal: checkTotal ? checkTotal.checked : false
+      descuentos: {
+        conceptos: selectedConceptos,
+        incluirTotal: chkTotal ? chkTotal.checked : false,
+        incluirConciliados: chkConc ? chkConc.checked : true,
+        columnasExtra: extras,
+        extraMapping: extraMapping
+      }
     };
   }
 
