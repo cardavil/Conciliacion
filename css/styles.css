@@ -177,9 +177,9 @@ body {
 }
 
 .contenido {
-  max-width: 1400px;
+  width: 95%;
+  max-width: 1800px;
   margin: var(--space-lg) auto;
-  padding: 0 var(--space-md);
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -983,9 +983,9 @@ body {
    ============================================ */
 
 .log {
-  max-width: 1400px;
+  width: 95%;
+  max-width: 1800px;
   margin: 0 auto var(--space-xl);
-  padding: 0 var(--space-md);
 }
 
 .log__header {
