@@ -1703,3 +1703,10 @@ body {
     gap: var(--space-sm);
   }
 }
+
+.app-footer {
+  text-align: center;
+  padding: var(--space-sm) 0;
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}

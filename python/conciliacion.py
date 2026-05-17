@@ -1136,6 +1136,15 @@ def generar_reportes(conciliacion_resultado, audit_trail=None, report_cfg=None):
                 for col_num in ["CxC Anterior", "CxC Actual", "diferencia", "valor_final"]:
                     if col_num in df_conc.columns:
                         df_conc[col_num] = pd.to_numeric(df_conc[col_num], errors="coerce")
+                col_order = ["llave"]
+                for campo in ["nombre_asociado", "cod_empresa", "nombre_empresa"]:
+                    if campo in df_conc.columns:
+                        col_order.append(campo)
+                col_order += ["concepto", "CxC Anterior", "CxC Actual", "diferencia",
+                              "valor_final", "estado", "decision", "comentario"]
+                col_order = [c for c in col_order if c in df_conc.columns]
+                remaining = [c for c in df_conc.columns if c not in col_order]
+                df_conc = df_conc[col_order + remaining]
                 df_conc.to_excel(writer, index=False, sheet_name="Conciliacion")
 
             # Hoja: Resumen
@@ -1297,3 +1306,6 @@ def generar_reportes(conciliacion_resultado, audit_trail=None, report_cfg=None):
     }
 
     return _respuesta(estado, mensajes, datos)
+
+
+# BY Cardavil & Katherinepaos
