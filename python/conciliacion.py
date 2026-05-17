@@ -1196,6 +1196,9 @@ def generar_reportes(conciliacion_resultado, audit_trail=None, report_cfg=None):
                 extra_mapping = report_cfg.get("descuentos", {}).get("extraMapping", {})
                 if extra_mapping:
                     _enriquecer_df(df_conc, extra_mapping, files_map)
+                for col_num in ["CxC Anterior", "CxC Actual", "diferencia", "valor_final"]:
+                    if col_num in df_conc.columns:
+                        df_conc[col_num] = pd.to_numeric(df_conc[col_num], errors="coerce")
                 df_conc.to_excel(writer, index=False, sheet_name="Conciliacion")
 
             # Hoja: Resumen
@@ -1261,6 +1264,7 @@ def generar_reportes(conciliacion_resultado, audit_trail=None, report_cfg=None):
                     df = df[mask]
 
             if len(df) > 0:
+                df["valor_final"] = pd.to_numeric(df["valor_final"], errors="coerce")
                 # Pivotar: una fila por llave, columna por concepto
                 pivot = df.pivot_table(index="llave", columns="concepto",
                                        values="valor_final", aggfunc="first")
