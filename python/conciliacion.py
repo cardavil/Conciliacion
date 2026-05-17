@@ -1218,7 +1218,64 @@ def generar_reportes(conciliacion_resultado, audit_trail=None, report_cfg=None):
 
                 desc_buf = BytesIO()
                 pivot.to_excel(desc_buf, index=False, engine="openpyxl",
-                               sheet_name="Descuentos")
+                               sheet_name="Descuentos", startrow=3)
+
+                from openpyxl import load_workbook
+                from openpyxl.styles import Font, PatternFill, Alignment
+                from openpyxl.utils import get_column_letter
+
+                wb = load_workbook(desc_buf)
+                ws = wb["Descuentos"]
+                n_cols = len(pivot.columns)
+                last_col = get_column_letter(n_cols)
+
+                fill_dark = PatternFill(start_color="002060", end_color="002060", fill_type="solid")
+                font_white_lg = Font(color="FFFFFF", bold=True, size=12)
+                font_white_md = Font(color="FFFFFF", bold=True, size=11)
+                font_white_sm = Font(color="FFFFFF", bold=True, size=10)
+                align_center = Alignment(horizontal="center", vertical="center")
+
+                ws.merge_cells("A1:{}1".format(last_col))
+                ws["A1"].value = "FONDO DE EMPLEADOS FEISA"
+                ws["A1"].font = font_white_lg
+                ws["A1"].fill = fill_dark
+                ws["A1"].alignment = align_center
+
+                inicio_q, _ = _quincena_actual()
+                meses_es = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO",
+                            "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
+                fecha_label = "{} {} {}".format(inicio_q.day, meses_es[inicio_q.month - 1], inicio_q.year)
+
+                ws.merge_cells("A2:{}2".format(last_col))
+                ws["A2"].value = "DESCUENTOS {}".format(fecha_label)
+                ws["A2"].font = font_white_md
+                ws["A2"].fill = fill_dark
+                ws["A2"].alignment = align_center
+
+                fill_header = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+                for ci in range(1, n_cols + 1):
+                    cell = ws.cell(row=4, column=ci)
+                    cell.font = font_white_sm
+                    cell.fill = fill_header
+                    cell.alignment = align_center
+
+                data_last_row = ws.max_row
+                total_row = data_last_row + 1
+                fill_total = PatternFill(start_color="D6E4F0", end_color="D6E4F0", fill_type="solid")
+                font_total = Font(bold=True)
+                for ci in range(1, n_cols + 1):
+                    cell = ws.cell(row=total_row, column=ci)
+                    cell.fill = fill_total
+                    cell.font = font_total
+                ws.cell(row=total_row, column=1, value="TOTAL").font = font_total
+                for ci, col_name in enumerate(pivot.columns, start=1):
+                    if col_name in conceptos_incluir or col_name == "TOTAL":
+                        col_vals = [ws.cell(row=r, column=ci).value for r in range(5, data_last_row + 1)]
+                        suma = sum(v for v in col_vals if isinstance(v, (int, float)))
+                        ws.cell(row=total_row, column=ci, value=suma)
+
+                desc_buf = BytesIO()
+                wb.save(desc_buf)
                 archivos["descuentos_quincena.xlsx"] = desc_buf.getvalue()
                 mensajes.append(_msg("ok", "Reporte de descuentos generado"))
 
