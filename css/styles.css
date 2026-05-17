@@ -177,7 +177,7 @@ body {
 }
 
 .contenido {
-  max-width: 960px;
+  max-width: 1400px;
   margin: var(--space-lg) auto;
   padding: 0 var(--space-md);
   display: flex;
@@ -983,7 +983,7 @@ body {
    ============================================ */
 
 .log {
-  max-width: 960px;
+  max-width: 1400px;
   margin: 0 auto var(--space-xl);
   padding: 0 var(--space-md);
 }

@@ -1946,7 +1946,7 @@ const App = (() => {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setTimeout(function () { URL.revokeObjectURL(url); }, 100);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
   }
 
   async function downloadAll() {

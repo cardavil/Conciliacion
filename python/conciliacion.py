@@ -1185,6 +1185,14 @@ def generar_reportes(conciliacion_resultado, audit_trail=None, report_cfg=None):
                     df_merge.columns = ["llave", "concepto", "decision", "comentario", "valor_final"]
                     df_conc["llave"] = df_conc["llave"].astype(str).str.strip()
                     df_conc = df_conc.merge(df_merge, on=["llave", "concepto"], how="left")
+                df_conc = df_conc.rename(columns={
+                    "esperado": "CxC Anterior",
+                    "real": "CxC Actual"
+                })
+                if "valor_final" in df_conc.columns:
+                    df_conc["valor_final"] = df_conc["valor_final"].fillna(df_conc["CxC Actual"])
+                else:
+                    df_conc["valor_final"] = df_conc["CxC Actual"]
                 extra_mapping = report_cfg.get("descuentos", {}).get("extraMapping", {})
                 if extra_mapping:
                     _enriquecer_df(df_conc, extra_mapping, files_map)
@@ -1268,6 +1276,15 @@ def generar_reportes(conciliacion_resultado, audit_trail=None, report_cfg=None):
                 if desc_cfg.get("incluirTotal", False):
                     num_cols = [c for c in conceptos_incluir if c in pivot.columns]
                     pivot["TOTAL"] = pivot[num_cols].apply(pd.to_numeric, errors="coerce").fillna(0).sum(axis=1)
+
+                col_order = ["llave"]
+                for campo in extra_mapping:
+                    if campo in pivot.columns:
+                        col_order.append(campo)
+                col_order.extend([c for c in conceptos_incluir if c in pivot.columns])
+                if "TOTAL" in pivot.columns:
+                    col_order.append("TOTAL")
+                pivot = pivot[col_order]
 
                 desc_buf = BytesIO()
                 pivot.to_excel(desc_buf, index=False, engine="openpyxl",
