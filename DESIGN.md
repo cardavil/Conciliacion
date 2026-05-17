@@ -191,39 +191,60 @@ ERROR    →  rojo, tiene errores que bloquean avance
 ## 6. ETAPA 3 — CONCILIACIÓN
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│ Etapa 3 · Conciliación                       [● ACT]    │
-├──────────────────────────────────────────────────────────┤
-│                                                          │
-│  Período: Q1 Mayo 2026                                   │
-│                                                          │
-│  ┌────────┐ ┌──────────┐ ┌──────────┐ ┌──────┐          │
-│  │  1618  │ │    24    │ │    3     │ │ 98.5%│          │
-│  │ Match  │ │Sin match │ │Duplicados│ │ Cob. │          │
-│  └────────┘ └──────────┘ └──────────┘ └──────┘          │
-│  ┌────────────┐ ┌──────────────┐  (condicionales)       │
-│  │  5 No Mro. │ │ 12 Sin Act. │                         │
-│  └────────────┘ └──────────────┘                         │
-│                                                          │
-│  OK: 1500 · Excedente: 42 · Faltante: 68 · Error: 8    │
-│                                                          │
-│  COLA DE EXCEPCIONES                                     │
-│  ┌──────────────────────────────────────────────────┐    │
-│  │ Llave↕ │ Tipo     │ Concepto │ Esperado │ Real  │    │
-│  │        │          │          │    ?     │   ?   │    │
-│  │ 12345  │●FALTANTE │ APORTES  │ $50,000  │$45,000│    │
-│  │ 67890  │●EXCEDENTE│ CREDITO  │ $30,000  │$35,000│    │
-│  │ 11111  │●SIN_MATCH│ —        │ $20,000  │   —   │    │
-│  │                                                 │    │
-│  │ Acciones: [✓ Aprobar] [✏ Corregir] [✗ Excluir] │    │
-│  │ Comentario: ______________________________ (req)│    │
-│  └──────────────────────────────────────────────────┘    │
-│                                                          │
-│  NOVEDADES                                               │
-│  (nuevos, retirados filtrados por quincena)              │
-│                                                          │
-│                      [▶ Generar Reportes]                │
-└──────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ Etapa 3 · Conciliación                               [● ACT]    │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Período: Q1 Mayo 2026                                           │
+│                                                                  │
+│  ┌────────┐ ┌──────────┐ ┌──────────┐ ┌──────┐                  │
+│  │  1618  │ │    24    │ │    3     │ │ 98.5%│                  │
+│  │ Match  │ │Sin match │ │Duplicados│ │ Cob. │                  │
+│  └────────┘ └──────────┘ └──────────┘ └──────┘                  │
+│  ┌────────────┐ ┌──────────────┐  (condicionales)               │
+│  │  5 No Mro. │ │ 12 Sin Act. │                                 │
+│  └────────────┘ └──────────────┘                                 │
+│                                                                  │
+│  OK: 1500 · Excedente: 42 · Faltante: 68 · Error: 8            │
+│                                                                  │
+│  EXCEPCIONES FUERA DEL UMBRAL                                    │
+│  Umbral: [0___]  Solo diferencias fuera del rango ±umbral        │
+│  ┌───────┬──────────┬─────────┬────────┬───────┬──────┬────────┐│
+│  │Llave↕ │ Tipo     │Concepto │CxC Ant │CxC Act│Difer.│Novedad ││
+│  │ 12345 │●FALTANTE │ APORTES │ 50,000 │45,000 │-5,000│        ││
+│  │ 67890 │●EXCEDENTE│ CREDITO │ 30,000 │35,000 │ 5,000│RETIRO  ││
+│  │       │          │         │        │       │      │(volunt)││
+│  │ Acción: [CxC Anterior] [CxC Actual] [Mayor] [Menor]         ││
+│  │ → Popup: valor a aplicar + comentario obligatorio            ││
+│  └──────────────────────────────────────────────────────────────┘│
+│                                                                  │
+│  EXCEPCIONES DENTRO DEL UMBRAL                                   │
+│  [CxC Anterior] [CxC Actual] [Mayor] [Menor]  ← acción masiva  │
+│  → Popup masivo: descripción + conteo + comentario obligatorio   │
+│  ┌───────┬──────────┬─────────┬────────┬───────┬──────┬────────┐│
+│  │Llave  │ Tipo     │Concepto │CxC Ant │CxC Act│Difer.│Novedad ││
+│  └──────────────────────────────────────────────────────────────┘│
+│                                                                  │
+│  OTRAS EXCEPCIONES                                               │
+│  ┌───────┬──────────┬─────────┬────────┬───────┬──────┬────────┐│
+│  │Llave  │ Tipo     │Concepto │CxC Ant │CxC Act│Difer.│Novedad ││
+│  │ 11111 │●SIN_MATCH│ —       │ 20,000 │  —    │  —   │NUEVO   ││
+│  └──────────────────────────────────────────────────────────────┘│
+│                                                                  │
+│  CONFIGURACIÓN DE REPORTES                                       │
+│  ☐ Nombre asociado: [— Columna —▼]                              │
+│  ☐ Cod. empresa:    [— Columna —▼]                              │
+│  ☐ Nombre empresa:  [— Columna —▼]                              │
+│  ☑ APORTES                                                       │
+│  ☑ AHORROS                                                       │
+│  ☑ SEGUROS                                                       │
+│  ☑ INCENTIVO                                                     │
+│  ☑ CREDITO                                                       │
+│  ☑ TOTAL                                                         │
+│  ☑ Incluir conciliados (OK)                                      │
+│                                                                  │
+│                              [▶ Generar Reportes]                │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ### Métricas de cruce (siempre visibles)
@@ -239,22 +260,25 @@ ERROR    →  rojo, tiene errores que bloquean avance
 ### Resumen de conciliación
 - OK / Excedente / Faltante / Error con conteos
 
-### Cola de excepciones
-- Tabla sorteable por click en headers (Llave, Tipo, Concepto, Esperado, Real, Diferencia)
+### 3 colas de excepciones
+- **Fuera del umbral**: acción individual por excepción (popup con valor a aplicar)
+- **Dentro del umbral**: acción masiva con 4 botones (popup con descripción + conteo)
+- **Otras**: acción individual (SIN_MATCH, NO_MAESTRO, etc.)
+- Todas sorteables por click en headers (Llave, Tipo, Concepto, CxC Ant, CxC Act, Diferencia, Novedad)
 - Indicadores de sort: ▲/▼ en header activo
-- Columna Tipo con badges de color:
-  - OK (verde), EXCEDENTE (naranja), FALTANTE (rojo), SIN_MATCH (azul)
-  - NO_MAESTRO (rojo oscuro), SIN_ACTIVIDAD (amarillo)
-  - DATA_QUALITY (violeta), ERROR (rojo)
-- Tooltips `?` en headers Esperado/Real: click-to-show (no hover), explican CC vs Desc
-- Cada excepción tiene botones de acción: Aprobar / Corregir / Excluir
-- Panel flotante de acción con comentario obligatorio (audit trail)
+- Columna Tipo con badges de color (8 tipos)
+- Columna Novedad: badge NUEVO (azul) o RETIRO (rojo) con tipo_retiro entre paréntesis
+- Tooltips `?` en headers CxC Anterior/CxC Actual: click-to-show, explican CC vs Desc
+- 4 acciones: CxC Anterior, CxC Actual, Valor mayor, Valor menor
+- Popup de acción: muestra valor a aplicar + comentario obligatorio (audit trail)
 - Botón "Generar Reportes" habilitado al resolver todas las excepciones
 
-### Novedades
-- Asociados nuevos (fecha_ingreso en quincena actual)
-- Asociados retirados (fecha_retiro en quincena actual)
-- Solo si maestro tiene columnas de fecha configuradas
+### Configuración de reportes (visible tras conciliación)
+- Lista vertical unificada:
+  - Campos extra: checkbox + select de columna fuente (deshabilitado si unchecked)
+  - Conceptos: checkboxes (todos checked por default)
+  - TOTAL: checkbox (checked por default)
+  - Incluir conciliados: checkbox (checked por default)
 
 ---
 
@@ -266,20 +290,19 @@ ERROR    →  rojo, tiene errores que bloquean avance
 ├────────────────────────────────────────────────┤
 │                                                │
 │  Archivos generados:                           │
-│  📄 resumen_ejecutivo          [⬇ Descargar]   │
-│  📄 excepciones_detalle        [⬇ Descargar]   │
-│  📄 conciliacion_completa      [⬇ Descargar]   │
-│  📄 novedades                  [⬇ Descargar]   │
-│  📄 audit_log                  [⬇ Descargar]   │
+│  📄 hoja_de_trabajo.xlsx   [⬇ Guardar]         │
+│  📄 descuentos_quincena.xlsx [⬇ Guardar]       │
 │                                                │
-│           [⬇ Descargar todo (.zip)]             │
+│        [⬇ Guardar todo / Descargar todo]       │
 └────────────────────────────────────────────────┘
 ```
 
 ### Elementos
-- Lista de reportes generados con botón de descarga individual
-- Descarga masiva como .zip (JSZip)
+- 2 reportes generados con botón de guardar/descargar individual
+- Popup de confirmación ("X guardado" + botón Aceptar) al completar
+- Descarga masiva como .zip (JSZip) si no hay carpeta de salida
 - Si hay carpeta de salida configurada en Etapa 1: escribe directo al disco
+- Botón dice "Guardar" (con carpeta salida) o "Descargar" (sin carpeta)
 
 ---
 
@@ -358,7 +381,9 @@ Tag de tipo      : badge de tipo de columna (texto gris, numérico azul, fecha v
 Mini-bar         : barra de porcentaje de nulos (verde < 20%, amarillo < 50%, rojo ≥ 50%)
 Tooltip popover  : click-to-show ? con popup informativo (no hover)
 Sort indicator   : ▲/▼ en header de tabla sorteable
-Form de acción   : panel flotante para excepciones (comentario obligatorio)
+Form de acción   : panel flotante para excepciones (valor a aplicar + comentario obligatorio)
+Form masivo      : variante para Cola 2 (descripción + conteo + comentario)
+Popup confirmar  : overlay modal con mensaje + botón Aceptar (para guardar reportes)
 Selector carpeta : File System Access API con ruta + estado (dot)
 Select numérico  : dropdown de separador decimal/miles
 ```
@@ -375,7 +400,8 @@ Click en inválidos  : expande mini-tabla con filas/valores inválidos
 Click en ? tooltip  : muestra/oculta popover informativo
 Click en header tabla: ordena por esa columna (asc/desc toggle)
 Mapear columnas     : dropdown en tabla matricial (columna real → concepto)
-Aprobar/Corregir/Excluir : acciones sobre excepciones con comentario obligatorio
-Descargar           : genera y descarga archivos de reporte
+Acción excepción    : CxC Anterior/Actual/Mayor/Menor → popup con valor + comentario
+Acción masiva       : mismas 4 acciones → popup con descripción + conteo + comentario
+Guardar/Descargar   : guarda reportes + popup confirmación con Aceptar
 Volver a analizar   : re-lee archivos de carpeta y re-ejecuta EDA
 ```

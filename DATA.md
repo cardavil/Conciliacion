@@ -177,11 +177,23 @@ ERROR          : dato inválido que impide comparación
 ## 7. SALIDAS GENERADAS
 
 ```
-Resumen ejecutivo         (.xlsx)  — Conteos OK/Excedente/Faltante/Sin Match/Error
-Excepciones detalle       (.xlsx)  — Excepciones que requirieron acción del analista
-Conciliación completa     (.xlsx)  — Cada comparación llave×concepto con estado
-Novedades                 (.xlsx)  — Asociados nuevos/retirados vs período anterior
-Log de auditoría          (.xlsx)  — Registro de todas las acciones y decisiones
+2 reportes Excel:
+
+hoja_de_trabajo.xlsx — evidencia documental completa (fijo, no configurable)
+  Hoja "Conciliación"  : resultados + decisiones del audit trail + campos extra
+                         Columnas: llave, concepto, CxC Anterior, CxC Actual,
+                         diferencia, estado, novedad, decision, comentario, valor_final
+                         valor_final = newValue (si hubo decisión) o CxC Actual (si OK)
+                         Valores numéricos normalizados (pd.to_numeric)
+  Hoja "Resumen"       : conteos OK/Excedente/Faltante/Sin Match/Error
+  Hoja "Novedades"     : asociados nuevos/retirados
+  Hoja "Audit Trail"   : log completo de acciones del analista
+
+descuentos_quincena.xlsx — reporte final configurable por el analista
+  Una fila por asociado (llave), una columna por concepto seleccionado
+  Orden de columnas: llave → extras (nombre, cod_empresa, nombre_empresa) → conceptos → TOTAL
+  Valores = valor_final (decisión del analista si hubo excepción, o CxC Actual si OK)
+  Configurable: conceptos a incluir, TOTAL, incluir conciliados, columnas extra
 ```
 
 ---

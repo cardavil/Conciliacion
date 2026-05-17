@@ -64,12 +64,12 @@ Si hay carpeta de salida: JS escribe directo al disco
 Conciliacion/
 ├── index.html             ← entrada principal (GitHub Pages)
 ├── css/
-│   └── styles.css         ← sistema de diseño (~1600 líneas, custom properties)
+│   └── styles.css         ← sistema de diseño (~1800 líneas, custom properties)
 ├── js/
-│   ├── app.js             ← orquestador UI (~1900 líneas, IIFE → App)
+│   ├── app.js             ← orquestador UI (~2100 líneas, IIFE → App)
 │   └── pyodide-bridge.js  ← comunicación JS ↔ Pyodide (~540 líneas, IIFE → PyBridge)
 ├── python/
-│   └── conciliacion.py    ← lógica de procesamiento (~1200 líneas, pandas)
+│   └── conciliacion.py    ← lógica de procesamiento (~1300 líneas, pandas)
 ├── CLAUDE.md              ← contexto de negocio y reglas
 ├── STACK.md               ← decisiones técnicas (este archivo)
 ├── DATA.md                ← modelo de datos
@@ -103,7 +103,7 @@ Conciliacion/
 
 ## 7. MÓDULOS IMPLEMENTADOS
 
-### Python (conciliacion.py ~1200 líneas)
+### Python (conciliacion.py ~1300 líneas)
 ```
 Utilidades     : detectar_encoding, detectar_separador, leer_archivo, resultado_a_json
 Helpers EDA    : _detectar_tipo_columna, _perfilar_columna, _verificar_consistencia_separador
@@ -112,33 +112,47 @@ Análisis       : analizar_archivo (perfil completo con tipos, nulos, llave suge
                  inferir_perfil, validar_fuente (umbral 20%/50% nulos, formato inconsistente)
 Conciliación   : conciliar (OK/EXCEDENTE/FALTANTE/SIN_MATCH + novedades desde maestro)
                  Soporta maestro como fuente de verdad, NO_MAESTRO, SIN_ACTIVIDAD
-Reportes       : generar_reportes (Excel vía openpyxl)
+                 Enriquece excepciones con novedad y tipo_retiro
+Reportes       : _enriquecer_df (helper para columnas extra vía lookup)
+                 generar_reportes → 2 archivos:
+                   hoja_de_trabajo.xlsx (4 hojas: Conciliación+audit, Resumen, Novedades, Audit Trail)
+                   descuentos_quincena.xlsx (pivot llave×concepto, columnas extras, TOTAL)
+                 Normalización numérica (pd.to_numeric) antes de escribir a Excel
 ```
 
-### JS — App (app.js ~1900 líneas)
+### JS — App (app.js ~2100 líneas)
 ```
 Patrón         : IIFE → const App, API pública
 Utilidades     : escapeHtml, formatSize, timeHHMM, classifyExtension
-Constantes     : CONCEPTOS_FIJOS (5), CAMPOS_OPCIONALES (3)
+Constantes     : CONCEPTOS_FIJOS (5), CAMPOS_OPCIONALES (3), EXC_ACTIONS (4)
+                 calcActionValue, getActionDescription
+UI             : showConfirmPopup (popup modal con Aceptar)
 Log            : addLog (ok/warn/error/info con timestamp)
 Etapas         : setStageState, toggleStage, completeStage, initStageNavigation
 Etapa 1        : initDirectoryPickers, pickInputDirectory, readInputDirectory
                  pickOutputDirectory, renderFileList, initSeparadorConfig
 EDA            : renderEDA (tarjetas expandibles, paginación, mini-bar nulos,
                  detalle de inválidos expandible con mini-tabla)
-Config cruce   : renderCrossConfig (roles por archivo, llave)
+Config cruce   : renderCrossConfig (roles por archivo, llave, tipo_retiro)
                  buildMappingTable (tabla matricial: conceptos como columnas,
                  archivos como filas, maestro primera fila)
                  buildMappingSelect, updateConceptColumns, collectMapping
                  validateCrossConfig (multi-CC TXT, intersección de conceptos)
-Conciliación   : renderConciliation (métricas + resumen + excepciones + novedades)
+Conciliación   : renderConciliation (métricas + resumen + 3 colas de excepciones)
                  renderTipoBadge (8 tipos con colores distintos)
-Excepciones    : renderExcepcionesBody, sortExcepciones, updateSortIndicators
-                 initExcSort (click en headers con data-col)
-                 initAyudaPopovers (tooltips ? click-to-show, no hover)
-Acciones       : renderActionButtons, showActionForm (panel flotante)
+                 renderNovedadBadge (NUEVO/RETIRO en columna Novedad)
+Excepciones    : 3 colas: fuera umbral (individual), dentro umbral (masiva), otras (individual)
+                 renderAllExcQueues, renderExcRows, filterExcepciones
+                 sortExcArray, handleExcSort, updateSortIndicators (sort por data-col)
+                 renderBulkAction, showBulkActionForm (popup masivo Cola 2)
+Acciones       : renderActionButtons (4 botones: CxC Ant/Act, Mayor, Menor)
+                 showActionForm (popup: valor a aplicar + comentario obligatorio)
                  checkAllExceptionsResolved
-Reportes       : renderReports, downloadBlob, writeAllToOutput (JSZip)
+Config reportes: renderReportConfig (lista vertical: extras → conceptos → TOTAL → conciliados)
+                 buildReportCheck, buildExtraFieldRow, getAllSourceColumns
+                 collectReportMapping
+Reportes       : renderReports, downloadBlob (10s revoke), downloadAll (JSZip)
+                 writeFileToOutput, writeAllToOutput (File System Access API)
 Inicialización : init, initAdvanceButtons, initRefreshButton, initReanalyzeButton
 ```
 

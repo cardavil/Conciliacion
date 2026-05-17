@@ -93,15 +93,25 @@ ETAPA 2 — Validación por Fuente
 ETAPA 3 — Conciliación
   Ejecutada automáticamente al avanzar desde Etapa 2
   Métricas de cruce: match, sin match, duplicados, cobertura (%)
-  Métricas de conciliación: OK, Excedente, Faltante, Error
-  Cola de excepciones unificada (SIN_MATCH + EXCEDENTE + FALTANTE + ERROR + DATA_QUALITY)
-  Cada acción requiere comentario obligatorio (audit trail)
-  Novedades desde maestro: retirados (fecha_retiro), nuevos (fecha_ingreso) filtrados por quincena
+  Métricas condicionales: No Maestro, Sin Actividad (solo si maestro asignado)
+  Resumen: OK, Excedente, Faltante, Error
+  3 colas de excepciones:
+    - Fuera del umbral: acción individual (popup con valor a aplicar + comentario)
+    - Dentro del umbral: acción masiva (popup con descripción + comentario)
+    - Otras: acción individual (SIN_MATCH, NO_MAESTRO, etc.)
+  4 acciones: CxC Anterior, CxC Actual, Valor mayor, Valor menor
+  Columna Novedad: NUEVO/RETIRO (tipo_retiro) como contexto en excepciones
+  Sorting por click en headers (llave, tipo, concepto, CxC Ant, CxC Act, diferencia, novedad)
+  Configuración de reportes: checkboxes para conceptos, TOTAL, conciliados, campos extra
   Botón "Generar Reportes" habilitado al resolver todas las excepciones
 
 ETAPA 4 — Reportes
   Generación automática al avanzar desde Etapa 3
-  Salidas: resumen ejecutivo, excepciones, conciliación completa, novedades, audit log
+  2 reportes:
+    - hoja_de_trabajo.xlsx (4 hojas: Conciliación, Resumen, Novedades, Audit Trail)
+    - descuentos_quincena.xlsx (pivotado por llave×concepto, configurable)
+  Valores numéricos normalizados (pd.to_numeric) para uso directo en Excel
+  Popup de confirmación al guardar/descargar
   Descarga individual o todo como .zip
   Si hay carpeta de salida: escribe directo al disco
 ```
