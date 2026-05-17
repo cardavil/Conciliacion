@@ -12,11 +12,6 @@ from datetime import datetime, date
 import calendar
 
 
-
-def _es_tipo_texto(dtype):
-    return pd.api.types.is_string_dtype(dtype) or dtype == object
-
-
 # ============================================
 # UTILIDADES
 # ============================================
@@ -39,6 +34,11 @@ def _respuesta(estado, mensajes, datos=None):
 def _msg(nivel, texto):
     """Crea un mensaje individual."""
     return {"nivel": nivel, "texto": texto}
+
+
+def _es_tipo_texto(dtype):
+    """True si el dtype de pandas es texto u object."""
+    return pd.api.types.is_string_dtype(dtype) or dtype == object
 
 
 def detectar_encoding(ruta):
@@ -604,6 +604,7 @@ def validar_fuente(nombre, ruta, perfil=None, decimal_sep=","):
 # ============================================
 
 def _normalizar_columnas(df, conceptos, invalidos_eda, miles_sep, decimal_sep):
+    """Convierte columnas de conceptos a numerico, marcando invalidos de EDA."""
     invalidos = {}
     for col in conceptos:
         if col in df.columns:
@@ -630,6 +631,7 @@ def _comparar_conceptos(llave_val, fila_cc, fila_desc, conceptos,
                         cc_invalidos, desc_invalidos, cc, desc,
                         cuenta_cobro, descuentos, llave,
                         resultados, excepciones, conteo):
+    """Compara valores de CC vs Desc para una llave, por cada concepto."""
     fila_cc_first = fila_cc.iloc[0]
     fila_desc_first = fila_desc.iloc[0]
 
@@ -649,29 +651,29 @@ def _comparar_conceptos(llave_val, fila_cc, fila_desc, conceptos,
             excepciones.append({
                 "llave": llave_val,
                 "concepto": concepto,
-                "esperado": val_orig_cc,
-                "real": val_orig_desc,
+                "cxc_anterior": val_orig_cc,
+                "cxc_actual": val_orig_desc,
                 "diferencia": "DATO INVALIDO",
                 "tipo": "ERROR",
             })
             resultados.append({
                 "llave": llave_val,
                 "concepto": concepto,
-                "esperado": val_orig_cc,
-                "real": val_orig_desc,
+                "cxc_anterior": val_orig_cc,
+                "cxc_actual": val_orig_desc,
                 "diferencia": 0,
                 "estado": "ERROR",
             })
             continue
 
-        val_esperado = 0
-        val_real = 0
+        val_cxc_anterior = 0
+        val_cxc_actual = 0
         if concepto in cc.columns:
-            val_esperado = float(fila_cc_first.get(concepto, 0) or 0)
+            val_cxc_anterior = float(fila_cc_first.get(concepto, 0) or 0)
         if concepto in desc.columns:
-            val_real = float(fila_desc_first.get(concepto, 0) or 0)
+            val_cxc_actual = float(fila_desc_first.get(concepto, 0) or 0)
 
-        diferencia = val_real - val_esperado
+        diferencia = val_cxc_actual - val_cxc_anterior
 
         if abs(diferencia) < 0.01:
             estado_reg = "OK"
@@ -682,8 +684,8 @@ def _comparar_conceptos(llave_val, fila_cc, fila_desc, conceptos,
             excepciones.append({
                 "llave": llave_val,
                 "concepto": concepto,
-                "esperado": str(val_esperado),
-                "real": str(val_real),
+                "cxc_anterior": str(val_cxc_anterior),
+                "cxc_actual": str(val_cxc_actual),
                 "diferencia": str(round(diferencia, 2)),
                 "tipo": "EXCEDENTE",
             })
@@ -693,8 +695,8 @@ def _comparar_conceptos(llave_val, fila_cc, fila_desc, conceptos,
             excepciones.append({
                 "llave": llave_val,
                 "concepto": concepto,
-                "esperado": str(val_esperado),
-                "real": str(val_real),
+                "cxc_anterior": str(val_cxc_anterior),
+                "cxc_actual": str(val_cxc_actual),
                 "diferencia": str(round(diferencia, 2)),
                 "tipo": "FALTANTE",
             })
@@ -702,8 +704,8 @@ def _comparar_conceptos(llave_val, fila_cc, fila_desc, conceptos,
         resultados.append({
             "llave": llave_val,
             "concepto": concepto,
-            "esperado": val_esperado,
-            "real": val_real,
+            "cxc_anterior": val_cxc_anterior,
+            "cxc_actual": val_cxc_actual,
             "diferencia": round(diferencia, 2),
             "estado": estado_reg,
         })
@@ -771,8 +773,8 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
                 excepciones.append({
                     "llave": "(vacia fila {})".format(int(idx) + 2),
                     "concepto": "(maestro)",
-                    "esperado": "llave valida",
-                    "real": "vacio",
+                    "cxc_anterior": "llave valida",
+                    "cxc_actual": "vacio",
                     "diferencia": "DATA_QUALITY",
                     "tipo": "DATA_QUALITY",
                 })
@@ -814,8 +816,8 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
             excepciones.append({
                 "llave": lv,
                 "concepto": "(todos)",
-                "esperado": "presente en maestro",
-                "real": "en {} pero no en maestro".format(" y ".join(fuentes)),
+                "cxc_anterior": "presente en maestro",
+                "cxc_actual": "en {} pero no en maestro".format(" y ".join(fuentes)),
                 "diferencia": "NO_MAESTRO",
                 "tipo": "NO_MAESTRO",
             })
@@ -844,8 +846,8 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
                 excepciones.append({
                     "llave": llave_val,
                     "concepto": "(todos)",
-                    "esperado": "presente en cuenta cobro",
-                    "real": "no encontrada en descuentos",
+                    "cxc_anterior": "presente en cuenta cobro",
+                    "cxc_actual": "no encontrada en descuentos",
                     "diferencia": "SIN_MATCH",
                     "tipo": "SIN_MATCH",
                 })
@@ -855,8 +857,8 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
                 excepciones.append({
                     "llave": llave_val,
                     "concepto": "(todos)",
-                    "esperado": "no encontrada en cuenta cobro",
-                    "real": "presente en descuentos",
+                    "cxc_anterior": "no encontrada en cuenta cobro",
+                    "cxc_actual": "presente en descuentos",
                     "diferencia": "SIN_MATCH",
                     "tipo": "SIN_MATCH",
                 })
@@ -866,8 +868,8 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
                 excepciones.append({
                     "llave": llave_val,
                     "concepto": "(todos)",
-                    "esperado": "presente en maestro",
-                    "real": "sin actividad en CC ni Desc",
+                    "cxc_anterior": "presente en maestro",
+                    "cxc_actual": "sin actividad en CC ni Desc",
                     "diferencia": "SIN_ACTIVIDAD",
                     "tipo": "SIN_ACTIVIDAD",
                 })
@@ -897,8 +899,8 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
                 excepciones.append({
                     "llave": llave_val,
                     "concepto": "(todos)",
-                    "esperado": "0",
-                    "real": "presente en descuentos",
+                    "cxc_anterior": "0",
+                    "cxc_actual": "presente en descuentos",
                     "diferencia": "SIN_MATCH",
                     "tipo": "SIN_MATCH",
                 })
@@ -909,8 +911,8 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
                 excepciones.append({
                     "llave": llave_val,
                     "concepto": "(todos)",
-                    "esperado": "presente en cuenta cobro",
-                    "real": "0",
+                    "cxc_anterior": "presente en cuenta cobro",
+                    "cxc_actual": "0",
                     "diferencia": "SIN_MATCH",
                     "tipo": "SIN_MATCH",
                 })
@@ -1065,17 +1067,26 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
 # ETAPA 4 — REPORTES
 # ============================================
 
-def _enriquecer_df(df, extra_mapping, files_map):
+def _enriquecer_df(df, extra_mapping, files_map, mensajes=None):
+    """Agrega columnas extra al DataFrame desde archivos fuente."""
+    if mensajes is None:
+        mensajes = []
     for campo, info in extra_mapping.items():
         fname = info.get("file", "")
         col_original = info.get("col", "")
         if not fname or not col_original:
+            mensajes.append(_msg("warn",
+                "Enriquecimiento: campo '{}' sin archivo o columna configurada".format(campo)))
             continue
         try:
             source_df = leer_archivo("/uploads/" + fname)
-        except Exception:
+        except Exception as e:
+            mensajes.append(_msg("warn",
+                "Enriquecimiento: no se pudo leer '{}': {}".format(fname, str(e))))
             continue
         if col_original not in source_df.columns:
+            mensajes.append(_msg("warn",
+                "Enriquecimiento: columna '{}' no encontrada en '{}'".format(col_original, fname)))
             continue
         llave_col_src = source_df.columns[0]
         source_df[llave_col_src] = source_df[llave_col_src].astype(str).str.strip()
@@ -1112,8 +1123,8 @@ def generar_reportes(conciliacion_resultado, audit_trail=None, report_cfg=None):
                     df_conc["llave"] = df_conc["llave"].astype(str).str.strip()
                     df_conc = df_conc.merge(df_merge, on=["llave", "concepto"], how="left")
                 df_conc = df_conc.rename(columns={
-                    "esperado": "CxC Anterior",
-                    "real": "CxC Actual"
+                    "cxc_anterior": "CxC Anterior",
+                    "cxc_actual": "CxC Actual"
                 })
                 if "valor_final" in df_conc.columns:
                     df_conc["valor_final"] = df_conc["valor_final"].fillna(df_conc["CxC Actual"])
@@ -1121,7 +1132,7 @@ def generar_reportes(conciliacion_resultado, audit_trail=None, report_cfg=None):
                     df_conc["valor_final"] = df_conc["CxC Actual"]
                 extra_mapping = report_cfg.get("descuentos", {}).get("extraMapping", {})
                 if extra_mapping:
-                    _enriquecer_df(df_conc, extra_mapping, files_map)
+                    _enriquecer_df(df_conc, extra_mapping, files_map, mensajes)
                 for col_num in ["CxC Anterior", "CxC Actual", "diferencia", "valor_final"]:
                     if col_num in df_conc.columns:
                         df_conc[col_num] = pd.to_numeric(df_conc[col_num], errors="coerce")
@@ -1171,10 +1182,10 @@ def generar_reportes(conciliacion_resultado, audit_trail=None, report_cfg=None):
                 def _valor_final(row, lu=at_lookup):
                     key = (str(row["llave"]), row.get("concepto", ""))
                     nv = lu.get(key)
-                    return nv if nv is not None else row["real"]
+                    return nv if nv is not None else row["cxc_actual"]
                 df["valor_final"] = df.apply(_valor_final, axis=1)
             else:
-                df["valor_final"] = df["real"]
+                df["valor_final"] = df["cxc_actual"]
 
             # Filtrar solo conceptos seleccionados
             df = df[df["concepto"].isin(conceptos_incluir)]
@@ -1190,7 +1201,7 @@ def generar_reportes(conciliacion_resultado, audit_trail=None, report_cfg=None):
                 # Enriquecer con columnas extra
                 extra_mapping = desc_cfg.get("extraMapping", {})
                 if extra_mapping:
-                    _enriquecer_df(pivot, extra_mapping, files_map)
+                    _enriquecer_df(pivot, extra_mapping, files_map, mensajes)
 
                 # TOTAL
                 if desc_cfg.get("incluirTotal", False):

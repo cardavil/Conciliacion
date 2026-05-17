@@ -38,10 +38,10 @@ const App = (() => {
   ];
 
   function calcActionValue(exc, action) {
-    var esp = parseFloat(exc.esperado);
-    var real = parseFloat(exc.real);
-    if (action === 'cxc_anterior') return exc.esperado;
-    if (action === 'cxc_actual') return exc.real;
+    var esp = parseFloat(exc.cxc_anterior);
+    var real = parseFloat(exc.cxc_actual);
+    if (action === 'cxc_anterior') return exc.cxc_anterior;
+    if (action === 'cxc_actual') return exc.cxc_actual;
     if (action === 'valor_mayor') return (isNaN(esp) || isNaN(real)) ? '' : Math.max(esp, real);
     if (action === 'valor_menor') return (isNaN(esp) || isNaN(real)) ? '' : Math.min(esp, real);
     return null;
@@ -1415,7 +1415,7 @@ const App = (() => {
       tdTipo.appendChild(renderTipoBadge(exc.tipo));
       tr.appendChild(tdTipo);
 
-      var textFields = ['concepto', 'esperado', 'real', 'diferencia'];
+      var textFields = ['concepto', 'cxc_anterior', 'cxc_actual', 'diferencia'];
       for (var f = 0; f < textFields.length; f++) {
         var td = document.createElement('td');
         td.textContent = exc[textFields[f]] != null ? exc[textFields[f]] : '';
@@ -1689,8 +1689,8 @@ const App = (() => {
 
     var parts = [];
     if (exc.concepto != null) parts.push('Concepto: ' + exc.concepto);
-    if (exc.esperado != null) parts.push('CxC Anterior: ' + exc.esperado);
-    if (exc.real != null) parts.push('CxC Actual: ' + exc.real);
+    if (exc.cxc_anterior != null) parts.push('CxC Anterior: ' + exc.cxc_anterior);
+    if (exc.cxc_actual != null) parts.push('CxC Actual: ' + exc.cxc_actual);
     if (exc.diferencia != null) parts.push('Diferencia: ' + exc.diferencia);
     if (exc.novedad) parts.push('Novedad: ' + exc.novedad + (exc.tipo_retiro ? ' (' + exc.tipo_retiro + ')' : ''));
     var valorAplicar = calcActionValue(exc, action);

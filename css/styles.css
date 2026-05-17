@@ -835,19 +835,6 @@ body {
 }
 
 /* ============================================
-   DETALLE SIN MATCH
-   ============================================ */
-
-.detalle-sin-match__titulo {
-  font-size: var(--font-base);
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: var(--space-sm);
-}
-
-/* ============================================
    PERIODO CARD
    ============================================ */
 
