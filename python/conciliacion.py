@@ -603,6 +603,112 @@ def validar_fuente(nombre, ruta, perfil=None, decimal_sep=","):
 # ETAPA 3 — CONCILIACION
 # ============================================
 
+def _normalizar_columnas(df, conceptos, invalidos_eda, miles_sep, decimal_sep):
+    invalidos = {}
+    for col in conceptos:
+        if col in df.columns:
+            raw = df[col].astype(str).str.strip()
+            if invalidos_eda and col in invalidos_eda:
+                inv_filas = set(invalidos_eda[col])
+                invalidos[col] = pd.Series(
+                    [(int(idx) + 2) in inv_filas for idx in df.index],
+                    index=df.index
+                )
+            else:
+                invalidos[col] = pd.Series(False, index=df.index)
+            valid_raw = raw.where(~invalidos[col], other="0")
+            df[col] = pd.to_numeric(
+                valid_raw
+                    .str.replace(miles_sep, "", regex=False)
+                    .str.replace(decimal_sep, ".", regex=False),
+                errors="coerce"
+            ).fillna(0)
+    return invalidos
+
+
+def _comparar_conceptos(llave_val, fila_cc, fila_desc, conceptos,
+                        cc_invalidos, desc_invalidos, cc, desc,
+                        cuenta_cobro, descuentos, llave,
+                        resultados, excepciones, conteo):
+    fila_cc_first = fila_cc.iloc[0]
+    fila_desc_first = fila_desc.iloc[0]
+
+    for concepto in conceptos:
+        fila_cc_idx = fila_cc.index[0]
+        fila_desc_idx = fila_desc.index[0]
+
+        inv_cc = concepto in cc_invalidos and bool(
+            cc_invalidos[concepto].loc[fila_cc_idx])
+        inv_desc = concepto in desc_invalidos and bool(
+            desc_invalidos[concepto].loc[fila_desc_idx])
+
+        if inv_cc or inv_desc:
+            conteo["error"] += 1
+            val_orig_cc = str(cuenta_cobro[concepto].loc[fila_cc_idx]) if concepto in cuenta_cobro.columns else ""
+            val_orig_desc = str(descuentos[concepto].loc[fila_desc_idx]) if concepto in descuentos.columns else ""
+            excepciones.append({
+                "llave": llave_val,
+                "concepto": concepto,
+                "esperado": val_orig_cc,
+                "real": val_orig_desc,
+                "diferencia": "DATO INVALIDO",
+                "tipo": "ERROR",
+            })
+            resultados.append({
+                "llave": llave_val,
+                "concepto": concepto,
+                "esperado": val_orig_cc,
+                "real": val_orig_desc,
+                "diferencia": 0,
+                "estado": "ERROR",
+            })
+            continue
+
+        val_esperado = 0
+        val_real = 0
+        if concepto in cc.columns:
+            val_esperado = float(fila_cc_first.get(concepto, 0) or 0)
+        if concepto in desc.columns:
+            val_real = float(fila_desc_first.get(concepto, 0) or 0)
+
+        diferencia = val_real - val_esperado
+
+        if abs(diferencia) < 0.01:
+            estado_reg = "OK"
+            conteo["ok"] += 1
+        elif diferencia > 0:
+            estado_reg = "EXCEDENTE"
+            conteo["excedente"] += 1
+            excepciones.append({
+                "llave": llave_val,
+                "concepto": concepto,
+                "esperado": str(val_esperado),
+                "real": str(val_real),
+                "diferencia": str(round(diferencia, 2)),
+                "tipo": "EXCEDENTE",
+            })
+        else:
+            estado_reg = "FALTANTE"
+            conteo["faltante"] += 1
+            excepciones.append({
+                "llave": llave_val,
+                "concepto": concepto,
+                "esperado": str(val_esperado),
+                "real": str(val_real),
+                "diferencia": str(round(diferencia, 2)),
+                "tipo": "FALTANTE",
+            })
+
+        resultados.append({
+            "llave": llave_val,
+            "concepto": concepto,
+            "esperado": val_esperado,
+            "real": val_real,
+            "diferencia": round(diferencia, 2),
+            "estado": estado_reg,
+        })
+
+
 def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_cfg=None,
               retiros=None, retiros_cfg=None,
               decimal_sep=",", cc_invalidos_eda=None, desc_invalidos_eda=None):
@@ -633,45 +739,8 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
 
     # Mascara de invalidos desde EDA + conversion locale-aware
     miles_sep = "." if decimal_sep == "," else ","
-    cc_invalidos = {}
-    desc_invalidos = {}
-
-    for col in conceptos:
-        if col in cc.columns:
-            raw = cc[col].astype(str).str.strip()
-            if cc_invalidos_eda and col in cc_invalidos_eda:
-                inv_filas = set(cc_invalidos_eda[col])
-                cc_invalidos[col] = pd.Series(
-                    [(int(idx) + 2) in inv_filas for idx in cc.index],
-                    index=cc.index
-                )
-            else:
-                cc_invalidos[col] = pd.Series(False, index=cc.index)
-            valid_raw = raw.where(~cc_invalidos[col], other="0")
-            cc[col] = pd.to_numeric(
-                valid_raw
-                    .str.replace(miles_sep, "", regex=False)
-                    .str.replace(decimal_sep, ".", regex=False),
-                errors="coerce"
-            ).fillna(0)
-
-        if col in desc.columns:
-            raw = desc[col].astype(str).str.strip()
-            if desc_invalidos_eda and col in desc_invalidos_eda:
-                inv_filas = set(desc_invalidos_eda[col])
-                desc_invalidos[col] = pd.Series(
-                    [(int(idx) + 2) in inv_filas for idx in desc.index],
-                    index=desc.index
-                )
-            else:
-                desc_invalidos[col] = pd.Series(False, index=desc.index)
-            valid_raw = raw.where(~desc_invalidos[col], other="0")
-            desc[col] = pd.to_numeric(
-                valid_raw
-                    .str.replace(miles_sep, "", regex=False)
-                    .str.replace(decimal_sep, ".", regex=False),
-                errors="coerce"
-            ).fillna(0)
+    cc_invalidos = _normalizar_columnas(cc, conceptos, cc_invalidos_eda, miles_sep, decimal_sep)
+    desc_invalidos = _normalizar_columnas(desc, conceptos, desc_invalidos_eda, miles_sep, decimal_sep)
 
     llaves_cc = set(cc[llave].unique())
     llaves_desc = set(desc[llave].unique())
@@ -761,86 +830,14 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
             in_desc = llave_val in llaves_desc
 
             if in_cc and in_desc:
-                # CONCILIABLE: comparar conceptos
                 fila_cc = cc[cc[llave] == llave_val]
                 fila_desc = desc[desc[llave] == llave_val]
-                fila_cc_first = fila_cc.iloc[0]
-                fila_desc_first = fila_desc.iloc[0]
-
-                for concepto in conceptos:
-                    fila_cc_idx = fila_cc.index[0]
-                    fila_desc_idx = fila_desc.index[0]
-
-                    inv_cc = concepto in cc_invalidos and bool(
-                        cc_invalidos[concepto].loc[fila_cc_idx])
-                    inv_desc = concepto in desc_invalidos and bool(
-                        desc_invalidos[concepto].loc[fila_desc_idx])
-
-                    if inv_cc or inv_desc:
-                        conteo["error"] += 1
-                        val_orig_cc = str(cuenta_cobro[concepto].loc[fila_cc_idx]) if concepto in cuenta_cobro.columns else ""
-                        val_orig_desc = str(descuentos[concepto].loc[fila_desc_idx]) if concepto in descuentos.columns else ""
-                        excepciones.append({
-                            "llave": llave_val,
-                            "concepto": concepto,
-                            "esperado": val_orig_cc,
-                            "real": val_orig_desc,
-                            "diferencia": "DATO INVALIDO",
-                            "tipo": "ERROR",
-                        })
-                        resultados.append({
-                            "llave": llave_val,
-                            "concepto": concepto,
-                            "esperado": val_orig_cc,
-                            "real": val_orig_desc,
-                            "diferencia": 0,
-                            "estado": "ERROR",
-                        })
-                        continue
-
-                    val_esperado = 0
-                    val_real = 0
-                    if concepto in cc.columns:
-                        val_esperado = float(fila_cc_first.get(concepto, 0) or 0)
-                    if concepto in desc.columns:
-                        val_real = float(fila_desc_first.get(concepto, 0) or 0)
-
-                    diferencia = val_real - val_esperado
-
-                    if abs(diferencia) < 0.01:
-                        estado_reg = "OK"
-                        conteo["ok"] += 1
-                    elif diferencia > 0:
-                        estado_reg = "EXCEDENTE"
-                        conteo["excedente"] += 1
-                        excepciones.append({
-                            "llave": llave_val,
-                            "concepto": concepto,
-                            "esperado": str(val_esperado),
-                            "real": str(val_real),
-                            "diferencia": str(round(diferencia, 2)),
-                            "tipo": "EXCEDENTE",
-                        })
-                    else:
-                        estado_reg = "FALTANTE"
-                        conteo["faltante"] += 1
-                        excepciones.append({
-                            "llave": llave_val,
-                            "concepto": concepto,
-                            "esperado": str(val_esperado),
-                            "real": str(val_real),
-                            "diferencia": str(round(diferencia, 2)),
-                            "tipo": "FALTANTE",
-                        })
-
-                    resultados.append({
-                        "llave": llave_val,
-                        "concepto": concepto,
-                        "esperado": val_esperado,
-                        "real": val_real,
-                        "diferencia": round(diferencia, 2),
-                        "estado": estado_reg,
-                    })
+                _comparar_conceptos(
+                    llave_val, fila_cc, fila_desc, conceptos,
+                    cc_invalidos, desc_invalidos, cc, desc,
+                    cuenta_cobro, descuentos, llave,
+                    resultados, excepciones, conteo
+                )
 
             elif in_cc and not in_desc:
                 conteo["sin_match"] += 1
@@ -919,83 +916,12 @@ def conciliar(cuenta_cobro, descuentos, llave, conceptos, maestro=None, maestro_
                 })
                 continue
 
-            fila_cc_first = fila_cc.iloc[0]
-            fila_desc_first = fila_desc.iloc[0]
-
-            for concepto in conceptos:
-                fila_cc_idx = fila_cc.index[0]
-                fila_desc_idx = fila_desc.index[0]
-
-                inv_cc = concepto in cc_invalidos and bool(
-                    cc_invalidos[concepto].loc[fila_cc_idx])
-                inv_desc = concepto in desc_invalidos and bool(
-                    desc_invalidos[concepto].loc[fila_desc_idx])
-
-                if inv_cc or inv_desc:
-                    conteo["error"] += 1
-                    val_orig_cc = str(cuenta_cobro[concepto].loc[fila_cc_idx]) if concepto in cuenta_cobro.columns else ""
-                    val_orig_desc = str(descuentos[concepto].loc[fila_desc_idx]) if concepto in descuentos.columns else ""
-                    excepciones.append({
-                        "llave": llave_val,
-                        "concepto": concepto,
-                        "esperado": val_orig_cc,
-                        "real": val_orig_desc,
-                        "diferencia": "DATO INVALIDO",
-                        "tipo": "ERROR",
-                    })
-                    resultados.append({
-                        "llave": llave_val,
-                        "concepto": concepto,
-                        "esperado": val_orig_cc,
-                        "real": val_orig_desc,
-                        "diferencia": 0,
-                        "estado": "ERROR",
-                    })
-                    continue
-
-                val_esperado = 0
-                val_real = 0
-                if concepto in cc.columns:
-                    val_esperado = float(fila_cc_first.get(concepto, 0) or 0)
-                if concepto in desc.columns:
-                    val_real = float(fila_desc_first.get(concepto, 0) or 0)
-
-                diferencia = val_real - val_esperado
-
-                if abs(diferencia) < 0.01:
-                    estado_reg = "OK"
-                    conteo["ok"] += 1
-                elif diferencia > 0:
-                    estado_reg = "EXCEDENTE"
-                    conteo["excedente"] += 1
-                    excepciones.append({
-                        "llave": llave_val,
-                        "concepto": concepto,
-                        "esperado": str(val_esperado),
-                        "real": str(val_real),
-                        "diferencia": str(round(diferencia, 2)),
-                        "tipo": "EXCEDENTE",
-                    })
-                else:
-                    estado_reg = "FALTANTE"
-                    conteo["faltante"] += 1
-                    excepciones.append({
-                        "llave": llave_val,
-                        "concepto": concepto,
-                        "esperado": str(val_esperado),
-                        "real": str(val_real),
-                        "diferencia": str(round(diferencia, 2)),
-                        "tipo": "FALTANTE",
-                    })
-
-                resultados.append({
-                    "llave": llave_val,
-                    "concepto": concepto,
-                    "esperado": val_esperado,
-                    "real": val_real,
-                    "diferencia": round(diferencia, 2),
-                    "estado": estado_reg,
-                })
+            _comparar_conceptos(
+                llave_val, fila_cc, fila_desc, conceptos,
+                cc_invalidos, desc_invalidos, cc, desc,
+                cuenta_cobro, descuentos, llave,
+                resultados, excepciones, conteo
+            )
 
     # Novedades desde maestro (fecha_ingreso)
     if maestro is not None and maestro_cfg is not None:

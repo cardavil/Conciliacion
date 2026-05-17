@@ -327,37 +327,57 @@ ERROR    →  rojo, tiene errores que bloquean avance
 
 ---
 
-## 9. PALETA DE COLORES
+## 9. SISTEMA DE TOKENS CSS
+
+Todos los valores visuales están centralizados en `:root` como custom properties.
 
 ### Semáforo de estados
 ```
-OK         : verde   — operación exitosa, sin problemas
-ADVERTENCIA: amarillo — hay problemas menores, puede continuar
-ERROR      : rojo    — problemas bloqueantes, requiere acción
-INFO       : azul    — informativo, etapa activa
-LOCKED     : gris    — etapa pendiente, no disponible
+--ok     / --ok-bg     / --ok-border      : verde   — exitoso
+--warn   / --warn-bg   / --warn-border    : amarillo — advertencia
+--error  / --error-bg  / --error-border   : rojo    — bloqueante
+--info   / --info-bg   / --info-border    : azul    — informativo
+--locked / --locked-bg / --locked-border  : gris    — pendiente
 ```
 
-### Badges de tipo de excepción
+### Badges y tags
 ```
-OK             : verde
-EXCEDENTE      : naranja
-FALTANTE       : rojo
-SIN_MATCH      : azul
-NO_MAESTRO     : rojo oscuro
-SIN_ACTIVIDAD  : amarillo
-DATA_QUALITY   : violeta
-ERROR          : rojo
+--badge-orange / --badge-orange-bg   : naranja — NO_MAESTRO
+--badge-amber  / --badge-amber-bg    : ámbar   — SIN_ACTIVIDAD, DATA_QUALITY
+--tag-purple   / --tag-purple-bg     : violeta — TXT, fecha
+--tag-blue     / --tag-blue-bg       : azul    — CSV, numérico
+--tag-green    / --tag-green-bg      : verde   — XLSX
+```
+
+### Escala tipográfica
+```
+--font-2xs : 0.625rem    tags pequeños
+--font-xs  : 0.6875rem   headers tabla, badges
+--font-sm  : 0.75rem     labels secundarios
+--font-base: 0.8125rem   texto general (mayoría de la UI)
+--font-md  : 0.875rem    campos, subtítulos
+--font-lg  : 0.9375rem   títulos de etapa
+--font-xl  : 1.125rem    título topbar
+--font-2xl : 1.75rem     métricas destacadas
+```
+
+### Superficies, texto, espaciado
+```
+--surface-page / --surface-card / --surface-border
+--text / --text-muted / --text-dim
+--space-xs (0.25rem) → --space-2xl (3rem)
+--radius-sm (4px) → --radius-pill (9999px)
+--shadow-sm, --transition, --transition-slow
 ```
 
 ### Tema
 ```
 Preferencia: tema claro (light mode)
-Fondo      : gris muy claro
-Superficies: blanco
-Bordes     : gris suave
-Texto      : negro/gris oscuro
-Monospace  : para datos, llaves, nombres de archivo
+Fondo      : gris muy claro (--surface-page)
+Superficies: blanco (--surface-card)
+Bordes     : gris suave (--surface-border)
+Texto      : negro/gris oscuro (--text / --text-muted)
+Monospace  : para datos, llaves, nombres de archivo (--font-mono)
 ```
 
 ---
@@ -370,7 +390,7 @@ Badge tipo       : variante para tipos de excepción (8 colores distintos)
 Tarjeta          : bloque con header clickeable + body expandible
 Tarjeta EDA      : variante con tabla de columnas (ok/warn/error) + paginación
 Tabla            : filas con hover, cabeceras uppercase, sorteable por click
-Tabla compacta   : variante para EDA (font 0.75rem, padding reducido)
+Tabla compacta   : variante para EDA (--font-sm, padding reducido)
 Tabla matricial  : variante para mapeo de columnas (dropdowns en celdas)
 Alerta           : barra con icono + mensaje + color de fondo (info/warn/error)
 Botón primario   : fondo oscuro, texto blanco, deshabilitado si no aplica
@@ -381,8 +401,9 @@ Tag de tipo      : badge de tipo de columna (texto gris, numérico azul, fecha v
 Mini-bar         : barra de porcentaje de nulos (verde < 20%, amarillo < 50%, rojo ≥ 50%)
 Tooltip popover  : click-to-show ? con popup informativo (no hover)
 Sort indicator   : ▲/▼ en header de tabla sorteable
-Form de acción   : panel flotante para excepciones (valor a aplicar + comentario obligatorio)
-Form masivo      : variante para Cola 2 (descripción + conteo + comentario)
+Form de acción   : _createActionModal factory (overlay + panel + input + botones)
+                   showActionForm: individual (valor a aplicar + comentario obligatorio)
+                   showBulkActionForm: masivo Cola 2 (descripción + conteo + comentario)
 Popup confirmar  : overlay modal con mensaje + botón Aceptar (para guardar reportes)
 Selector carpeta : File System Access API con ruta + estado (dot)
 Select numérico  : dropdown de separador decimal/miles

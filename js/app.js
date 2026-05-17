@@ -1465,23 +1465,21 @@ const App = (() => {
     containerEl.appendChild(actionsRow);
   }
 
-  function showBulkActionForm(containerEl, excs, action) {
+  function _createActionModal(config) {
     var overlay = document.createElement('div');
     overlay.className = 'accion-overlay';
 
     var panel = document.createElement('div');
     panel.className = 'accion-panel';
 
-    var actInfo = EXC_ACTIONS.filter(function (a) { return a.value === action; })[0];
-
     var titulo = document.createElement('h4');
     titulo.className = 'accion-panel__titulo';
-    titulo.textContent = actInfo.label + ' — ' + excs.length + ' excepciones';
+    titulo.textContent = config.titleText;
     panel.appendChild(titulo);
 
     var detalle = document.createElement('p');
     detalle.className = 'accion-panel__detalle';
-    detalle.textContent = getActionDescription(action);
+    detalle.textContent = config.detailContent;
     panel.appendChild(detalle);
 
     var commentInput = document.createElement('input');
@@ -1512,38 +1510,7 @@ const App = (() => {
         commentInput.focus();
         return;
       }
-
-      var ts = new Date().toISOString();
-      for (var j = 0; j < excs.length; j++) {
-        state.auditTrail.push({
-          timestamp: ts,
-          key: excs[j].llave,
-          concepto: excs[j].concepto || '',
-          action: action,
-          context: 'conciliacion',
-          comment: comment,
-          bulk: true,
-          newValue: calcActionValue(excs[j], action)
-        });
-      }
-
-      containerEl.innerHTML = '';
-      var badge = document.createElement('span');
-      badge.className = 'badge badge--ok';
-      badge.textContent = actInfo.label + ' — ' + excs.length + ' registros';
-      containerEl.appendChild(badge);
-
-      var insideBody = $('#exc-inside-body');
-      if (insideBody) {
-        var rows = insideBody.querySelectorAll('tr');
-        for (var r = 0; r < rows.length; r++) {
-          rows[r].classList.add('exc-row--resolved');
-        }
-      }
-
-      closePanel();
-      addLog('ok', 'Accion masiva: ' + action + ' — ' + excs.length + ' excepciones — ' + comment);
-      checkAllExceptionsResolved('conciliacion');
+      config.onConfirm(comment, closePanel);
     });
 
     btnCancel.addEventListener('click', closePanel);
@@ -1557,6 +1524,48 @@ const App = (() => {
     overlay.appendChild(panel);
     document.body.appendChild(overlay);
     commentInput.focus();
+  }
+
+  function showBulkActionForm(containerEl, excs, action) {
+    var actInfo = EXC_ACTIONS.filter(function (a) { return a.value === action; })[0];
+
+    _createActionModal({
+      titleText: actInfo.label + ' — ' + excs.length + ' excepciones',
+      detailContent: getActionDescription(action),
+      onConfirm: function (comment, closePanel) {
+        var ts = new Date().toISOString();
+        for (var j = 0; j < excs.length; j++) {
+          state.auditTrail.push({
+            timestamp: ts,
+            key: excs[j].llave,
+            concepto: excs[j].concepto || '',
+            action: action,
+            context: 'conciliacion',
+            comment: comment,
+            bulk: true,
+            newValue: calcActionValue(excs[j], action)
+          });
+        }
+
+        containerEl.innerHTML = '';
+        var badge = document.createElement('span');
+        badge.className = 'badge badge--ok';
+        badge.textContent = actInfo.label + ' — ' + excs.length + ' registros';
+        containerEl.appendChild(badge);
+
+        var insideBody = $('#exc-inside-body');
+        if (insideBody) {
+          var rows = insideBody.querySelectorAll('tr');
+          for (var r = 0; r < rows.length; r++) {
+            rows[r].classList.add('exc-row--resolved');
+          }
+        }
+
+        closePanel();
+        addLog('ok', 'Accion masiva: ' + action + ' — ' + excs.length + ' excepciones — ' + comment);
+        checkAllExceptionsResolved('conciliacion');
+      }
+    });
   }
 
   function renderAllExcQueues() {
@@ -1676,21 +1685,8 @@ const App = (() => {
 
   function showActionForm(container, exc, action, context) {
     var key = exc.llave;
-    var overlay = document.createElement('div');
-    overlay.className = 'accion-overlay';
-
-    var panel = document.createElement('div');
-    panel.className = 'accion-panel';
-
     var actInfo = EXC_ACTIONS.filter(function (a) { return a.value === action; })[0];
 
-    var titulo = document.createElement('h4');
-    titulo.className = 'accion-panel__titulo';
-    titulo.textContent = (actInfo ? actInfo.label : action) + ' — ' + key;
-    panel.appendChild(titulo);
-
-    var detalle = document.createElement('p');
-    detalle.className = 'accion-panel__detalle';
     var parts = [];
     if (exc.concepto != null) parts.push('Concepto: ' + exc.concepto);
     if (exc.esperado != null) parts.push('CxC Anterior: ' + exc.esperado);
@@ -1699,72 +1695,33 @@ const App = (() => {
     if (exc.novedad) parts.push('Novedad: ' + exc.novedad + (exc.tipo_retiro ? ' (' + exc.tipo_retiro + ')' : ''));
     var valorAplicar = calcActionValue(exc, action);
     if (valorAplicar != null) parts.push('Valor a aplicar: ' + valorAplicar);
-    detalle.textContent = parts.join(' | ');
-    panel.appendChild(detalle);
 
-    var commentInput = document.createElement('input');
-    commentInput.type = 'text';
-    commentInput.className = 'accion-form__input';
-    commentInput.placeholder = 'Comentario obligatorio';
-    panel.appendChild(commentInput);
+    _createActionModal({
+      titleText: (actInfo ? actInfo.label : action) + ' — ' + key,
+      detailContent: parts.join(' | '),
+      onConfirm: function (comment, closePanel) {
+        state.auditTrail.push({
+          timestamp: new Date().toISOString(),
+          key: key,
+          concepto: exc.concepto || '',
+          action: action,
+          context: context,
+          comment: comment,
+          bulk: false,
+          newValue: calcActionValue(exc, action)
+        });
 
-    var btnRow = document.createElement('div');
-    btnRow.className = 'accion-form__buttons';
+        container.innerHTML = '';
+        var badge = document.createElement('span');
+        badge.className = 'badge badge--ok';
+        badge.textContent = actInfo ? actInfo.shortLabel : action;
+        container.appendChild(badge);
 
-    var btnConfirm = document.createElement('button');
-    btnConfirm.className = 'boton boton--accion accion-form__btn-confirmar';
-    btnConfirm.textContent = 'Confirmar';
-
-    var btnCancel = document.createElement('button');
-    btnCancel.className = 'boton boton--accion accion-form__btn-cancelar';
-    btnCancel.textContent = 'Cancelar';
-
-    function closePanel() {
-      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-    }
-
-    btnConfirm.addEventListener('click', function () {
-      var comment = commentInput.value.trim();
-      if (!comment) {
-        commentInput.classList.add('accion-form__input--error');
-        commentInput.focus();
-        return;
+        closePanel();
+        addLog('ok', key + ': ' + action + ' — ' + comment);
+        checkAllExceptionsResolved(context);
       }
-
-      state.auditTrail.push({
-        timestamp: new Date().toISOString(),
-        key: key,
-        concepto: exc.concepto || '',
-        action: action,
-        context: context,
-        comment: comment,
-        bulk: false,
-        newValue: calcActionValue(exc, action)
-      });
-
-      container.innerHTML = '';
-      var badge = document.createElement('span');
-      badge.className = 'badge badge--ok';
-      badge.textContent = actInfo ? actInfo.shortLabel : action;
-      container.appendChild(badge);
-
-      closePanel();
-      addLog('ok', key + ': ' + action + ' — ' + comment);
-      checkAllExceptionsResolved(context);
     });
-
-    btnCancel.addEventListener('click', closePanel);
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) closePanel();
-    });
-
-    btnRow.appendChild(btnConfirm);
-    btnRow.appendChild(btnCancel);
-    panel.appendChild(btnRow);
-    overlay.appendChild(panel);
-    document.body.appendChild(overlay);
-
-    commentInput.focus();
   }
 
   function checkAllExceptionsResolved(context) {
