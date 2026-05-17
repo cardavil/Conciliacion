@@ -1860,31 +1860,21 @@ const App = (() => {
     descTitle.className = 'config-reportes__subtitulo';
     descTitle.textContent = 'Reporte de descuentos';
 
-    // Checkboxes de conceptos
-    var conceptosDiv = document.createElement('div');
-    conceptosDiv.className = 'config-reportes__checks';
+    var listaDiv = document.createElement('div');
+    listaDiv.className = 'config-reportes__checks';
+
+    for (var e = 0; e < CAMPOS_OPCIONALES.length; e++) {
+      listaDiv.appendChild(buildExtraFieldRow(CAMPOS_OPCIONALES[e]));
+    }
     var conceptos = state.crossConfig.conceptos || [];
     for (var i = 0; i < conceptos.length; i++) {
-      conceptosDiv.appendChild(buildReportCheck('concepto-' + conceptos[i], conceptos[i], true));
+      listaDiv.appendChild(buildReportCheck('concepto-' + conceptos[i], conceptos[i], true));
     }
-    conceptosDiv.appendChild(buildReportCheck('incluir-total', 'TOTAL', true));
-
-    // Checkbox conciliados
-    var opcionesDiv = document.createElement('div');
-    opcionesDiv.className = 'config-reportes__checks';
-    opcionesDiv.appendChild(buildReportCheck('incluir-conciliados', 'Incluir conciliados (OK)', true));
-
-    // Columnas extra
-    var extrasDiv = document.createElement('div');
-    extrasDiv.className = 'config-reportes__extras';
-    for (var e = 0; e < CAMPOS_OPCIONALES.length; e++) {
-      extrasDiv.appendChild(buildExtraFieldRow(CAMPOS_OPCIONALES[e]));
-    }
+    listaDiv.appendChild(buildReportCheck('incluir-total', 'TOTAL', true));
+    listaDiv.appendChild(buildReportCheck('incluir-conciliados', 'Incluir conciliados (OK)', true));
 
     descSection.appendChild(descTitle);
-    descSection.appendChild(extrasDiv);
-    descSection.appendChild(conceptosDiv);
-    descSection.appendChild(opcionesDiv);
+    descSection.appendChild(listaDiv);
     tablaEl.appendChild(descSection);
 
     container.removeAttribute('hidden');

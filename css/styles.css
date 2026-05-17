@@ -1336,12 +1336,6 @@ body {
   gap: 0.25rem;
 }
 
-.config-reportes__extras {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
 .config-reportes__extra-row {
   display: flex;
   align-items: center;
