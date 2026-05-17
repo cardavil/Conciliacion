@@ -118,6 +118,27 @@ const App = (() => {
      LOG DE ACTIVIDAD
      ============================================ */
 
+  function showConfirmPopup(msg) {
+    var overlay = document.createElement('div');
+    overlay.className = 'accion-overlay';
+    var panel = document.createElement('div');
+    panel.className = 'accion-panel';
+    var texto = document.createElement('p');
+    texto.className = 'accion-panel__detalle';
+    texto.style.textAlign = 'center';
+    texto.textContent = msg;
+    var btn = document.createElement('button');
+    btn.className = 'boton boton--primario';
+    btn.textContent = 'Aceptar';
+    btn.addEventListener('click', function () {
+      document.body.removeChild(overlay);
+    });
+    panel.appendChild(texto);
+    panel.appendChild(btn);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+  }
+
   function addLog(level, message) {
     const body = $('#log-body');
     if (!body) return;
@@ -1963,6 +1984,7 @@ const App = (() => {
       var content = await zip.generateAsync({ type: 'blob' });
       downloadBlob(content, 'reportes_conciliacion.zip');
       addLog('ok', 'Reportes descargados como ZIP');
+      showConfirmPopup('Reportes descargados');
     } catch (err) {
       addLog('error', 'Error al generar ZIP — descargando individualmente');
       dbg('JSZip error:', err);
@@ -1994,6 +2016,7 @@ const App = (() => {
       await writable.write(blob);
       await writable.close();
       addLog('ok', filename + ' guardado en ' + state.outputDirHandle.name);
+      showConfirmPopup(filename + ' guardado');
     } catch (err) {
       addLog('error', 'Error al guardar ' + filename + ': ' + (err.message || err));
       downloadBlob(blob, filename);
@@ -2016,6 +2039,7 @@ const App = (() => {
       }
       if (successCount === reports.length) {
         addLog('ok', reports.length + ' reporte(s) guardados en ' + state.outputDirHandle.name);
+        showConfirmPopup(reports.length + ' reporte(s) guardados');
       }
     } else {
       await downloadAll();
