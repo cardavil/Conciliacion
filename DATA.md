@@ -193,7 +193,7 @@ descuentos_quincena.xlsx — reporte final configurable por el analista
   Una fila por asociado (llave), una columna por concepto seleccionado
   Orden de columnas: llave → extras (nombre, cod_empresa, nombre_empresa) → conceptos → TOTAL
   Valores = valor_final (decisión del analista si hubo excepción, o CxC Actual si OK)
-  Configurable: conceptos a incluir, TOTAL, incluir conciliados, columnas extra
+  Configurable: conceptos a incluir, TOTAL, columnas extra
 ```
 
 ---

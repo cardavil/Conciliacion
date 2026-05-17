@@ -102,7 +102,7 @@ ETAPA 3 — Conciliación
   4 acciones: CxC Anterior, CxC Actual, Valor mayor, Valor menor
   Columna Novedad: NUEVO/RETIRO (tipo_retiro) como contexto en excepciones
   Sorting por click en headers (llave, tipo, concepto, CxC Ant, CxC Act, diferencia, novedad)
-  Configuración de reportes: checkboxes para conceptos, TOTAL, conciliados, campos extra
+  Configuración de reportes: checkboxes para conceptos, TOTAL, campos extra
   Botón "Generar Reportes" habilitado al resolver todas las excepciones
 
 ETAPA 4 — Reportes

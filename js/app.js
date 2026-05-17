@@ -1849,7 +1849,6 @@ const App = (() => {
       listaDiv.appendChild(buildReportCheck('concepto-' + conceptos[i], conceptos[i], true));
     }
     listaDiv.appendChild(buildReportCheck('incluir-total', 'TOTAL', true));
-    listaDiv.appendChild(buildReportCheck('incluir-conciliados', 'Incluir conciliados (OK)', true));
 
     descSection.appendChild(descTitle);
     descSection.appendChild(listaDiv);
@@ -1867,7 +1866,6 @@ const App = (() => {
     }
 
     var chkTotal = document.getElementById('report-incluir-total');
-    var chkConc = document.getElementById('report-incluir-conciliados');
 
     var extras = [];
     var extraMapping = {};
@@ -1895,7 +1893,6 @@ const App = (() => {
       descuentos: {
         conceptos: selectedConceptos,
         incluirTotal: chkTotal ? chkTotal.checked : false,
-        incluirConciliados: chkConc ? chkConc.checked : true,
         columnasExtra: extras,
         extraMapping: extraMapping
       }

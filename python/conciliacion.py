@@ -1179,16 +1179,6 @@ def generar_reportes(conciliacion_resultado, audit_trail=None, report_cfg=None):
             # Filtrar solo conceptos seleccionados
             df = df[df["concepto"].isin(conceptos_incluir)]
 
-            # Filtrar conciliados si no se quieren
-            incluir_conc = desc_cfg.get("incluirConciliados", True)
-            if not incluir_conc:
-                if audit_trail:
-                    at_keys = set()
-                    for at in audit_trail:
-                        at_keys.add((str(at.get("key", "")), at.get("concepto", "")))
-                    mask = df.apply(lambda r: (str(r["llave"]), r.get("concepto", "")) in at_keys, axis=1)
-                    df = df[mask]
-
             if len(df) > 0:
                 df["valor_final"] = pd.to_numeric(df["valor_final"], errors="coerce")
                 # Pivotar: una fila por llave, columna por concepto
@@ -1218,7 +1208,7 @@ def generar_reportes(conciliacion_resultado, audit_trail=None, report_cfg=None):
 
                 desc_buf = BytesIO()
                 pivot.to_excel(desc_buf, index=False, engine="openpyxl",
-                               sheet_name="Descuentos", startrow=3)
+                               sheet_name="Descuentos", startrow=2)
 
                 from openpyxl import load_workbook
                 from openpyxl.styles import Font, PatternFill, Alignment
@@ -1254,7 +1244,7 @@ def generar_reportes(conciliacion_resultado, audit_trail=None, report_cfg=None):
 
                 fill_header = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
                 for ci in range(1, n_cols + 1):
-                    cell = ws.cell(row=4, column=ci)
+                    cell = ws.cell(row=3, column=ci)
                     cell.font = font_white_sm
                     cell.fill = fill_header
                     cell.alignment = align_center
@@ -1270,7 +1260,7 @@ def generar_reportes(conciliacion_resultado, audit_trail=None, report_cfg=None):
                 ws.cell(row=total_row, column=1, value="TOTAL").font = font_total
                 for ci, col_name in enumerate(pivot.columns, start=1):
                     if col_name in conceptos_incluir or col_name == "TOTAL":
-                        col_vals = [ws.cell(row=r, column=ci).value for r in range(5, data_last_row + 1)]
+                        col_vals = [ws.cell(row=r, column=ci).value for r in range(4, data_last_row + 1)]
                         suma = sum(v for v in col_vals if isinstance(v, (int, float)))
                         ws.cell(row=total_row, column=ci, value=suma)
 

@@ -241,7 +241,6 @@ ERROR    →  rojo, tiene errores que bloquean avance
 │  ☑ INCENTIVO                                                     │
 │  ☑ CREDITO                                                       │
 │  ☑ TOTAL                                                         │
-│  ☑ Incluir conciliados (OK)                                      │
 │                                                                  │
 │                              [▶ Generar Reportes]                │
 └──────────────────────────────────────────────────────────────────┘
@@ -278,7 +277,6 @@ ERROR    →  rojo, tiene errores que bloquean avance
   - Campos extra: checkbox + select de columna fuente (deshabilitado si unchecked)
   - Conceptos: checkboxes (todos checked por default)
   - TOTAL: checkbox (checked por default)
-  - Incluir conciliados: checkbox (checked por default)
 
 ---
 

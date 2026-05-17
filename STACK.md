@@ -151,7 +151,7 @@ Excepciones    : 3 colas: fuera umbral (individual), dentro umbral (masiva), otr
 Acciones       : renderActionButtons (4 botones: CxC Ant/Act, Mayor, Menor)
                  showActionForm (usa _createActionModal)
                  checkAllExceptionsResolved
-Config reportes: renderReportConfig (lista vertical: extras → conceptos → TOTAL → conciliados)
+Config reportes: renderReportConfig (lista vertical: extras → conceptos → TOTAL)
                  buildReportCheck, buildExtraFieldRow, getAllSourceColumns
                  collectReportMapping
 Reportes       : renderReports, downloadBlob (10s revoke), downloadAll (JSZip)
