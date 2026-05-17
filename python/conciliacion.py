@@ -1205,6 +1205,8 @@ def generar_reportes(conciliacion_resultado, audit_trail=None, report_cfg=None):
                 if "TOTAL" in pivot.columns:
                     col_order.append("TOTAL")
                 pivot = pivot[col_order]
+                pivot = pivot.rename(columns={"llave": "CEDULA"})
+                pivot.columns = [c.upper() for c in pivot.columns]
 
                 desc_buf = BytesIO()
                 pivot.to_excel(desc_buf, index=False, engine="openpyxl",
