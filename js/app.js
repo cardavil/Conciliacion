@@ -1882,9 +1882,9 @@ const App = (() => {
     }
 
     descSection.appendChild(descTitle);
+    descSection.appendChild(extrasDiv);
     descSection.appendChild(conceptosDiv);
     descSection.appendChild(opcionesDiv);
-    descSection.appendChild(extrasDiv);
     tablaEl.appendChild(descSection);
 
     container.removeAttribute('hidden');
